@@ -1,0 +1,6 @@
+{
+  "name": "지식 탐험가",
+  "description": "Google 검색을 사용하여 모든 주제에 대한 질문에 답변하고 후속 질문을 제안하는 AI 챗봇입니다.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

@@ -1,0 +1,87 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+body { 
+  margin: 0; 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background-color: #F5F1E9; /* Beige background */
+  overflow: hidden; /* Prevent body scroll */
+}
+
+.chat-container::-webkit-scrollbar { width: 6px; }
+.chat-container::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
+.chat-container::-webkit-scrollbar-track { background-color: transparent; }
+
+/* Custom bubble styles */
+.bubble {
+  position: relative;
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 85%;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+}
+
+.bubble-user {
+  background-color: #FFDE03;
+  color: #333;
+  border-bottom-right-radius: 4px;
+}
+
+.bubble-user::after {
+  right: -12px;
+  border-left-color: #FFDE03;
+  border-right: 0;
+  border-top: 0;
+  margin-top: -2px;
+}
+
+.bubble-model {
+  background-color: #FFFFFF;
+  color: #333;
+  border-bottom-left-radius: 4px;
+}
+
+.bubble-model::after {
+  left: -12px;
+  border-right-color: #FFFFFF;
+  border-left: 0;
+  border-top: 0;
+  margin-top: -2px;
+}
+
+/* Styling for rendered markdown - Light Theme */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  color: #111827;
+}
+.prose p, .prose ul, .prose ol, .prose li, .prose strong, .prose em, .prose blockquote {
+  color: #374151;
+}
+.prose code { color: #1e293b; }
+.prose a { color: #D55C2D; }
+.prose a:hover { color: #b54a21; }
+.prose blockquote { border-left-color: #e5e7eb; }
+.prose pre {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+/* Chat History Sidebar Scrollbar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: #a0aec0;
+  border-radius: 2px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background-color: transparent;
+}
