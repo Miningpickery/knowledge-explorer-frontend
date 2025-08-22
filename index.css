@@ -58,12 +58,136 @@ body {
   margin-top: -2px;
 }
 
-/* Styling for rendered markdown - Light Theme */
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  color: #111827;
-}
-.prose p, .prose ul, .prose ol, .prose li, .prose strong, .prose em, .prose blockquote {
+/* 마크다운 렌더링 기본 스타일 - 채팅 글씨 크기 고정 */
+.prose {
+  line-height: 1.6;
   color: #374151;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose p {
+  margin-bottom: 1em;
+  line-height: 1.6;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose ul, .prose ol {
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose li {
+  margin-bottom: 0.5em;
+  line-height: 1.5;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose strong {
+  font-weight: 600;
+  color: #111827;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose em {
+  font-style: italic;
+  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+}
+
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 13px !important; /* 코드는 약간 작게 */
+}
+
+/* 모든 prose 요소에서 글씨 크기 고정 */
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-size: 14px !important;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+.prose blockquote {
+  font-size: 14px !important;
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  margin-left: 0;
+  color: #6b7280;
+}
+
+.prose pre {
+  font-size: 13px !important;
+  background-color: #f3f4f6;
+  padding: 0.75em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+}
+
+.prose table {
+  font-size: 14px !important;
+}
+
+.prose th, .prose td {
+  font-size: 14px !important;
+  padding: 0.5em;
+  border: 1px solid #e5e7eb;
+}
+
+/* 스트리밍 애니메이션 */
+@keyframes typing {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.typing-cursor {
+  animation: typing 1s infinite;
+}
+
+/* 메시지 버블 기본 스타일 */
+.message-bubble {
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+/* 스트리밍 텍스트 애니메이션 */
+.streaming-text {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 메시지 버블 내 텍스트 자간 조정 */
+.message-bubble {
+  letter-spacing: -0.01em;
+}
+
+.message-bubble p, .message-bubble li {
+  letter-spacing: -0.01em;
+}
+
+/* 전체적인 텍스트 자간 조정 */
+.prose {
+  letter-spacing: -0.01em;
+}
+
+.prose * {
+  letter-spacing: -0.01em;
+}
+
+/* 인라인 코드 스타일 */
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
 }
 .prose code { color: #1e293b; }
 .prose a { color: #D55C2D; }
@@ -84,4 +208,85 @@ body {
 }
 .sidebar-scroll::-webkit-scrollbar-track {
   background-color: transparent;
+}
+
+/* 메시지 애니메이션 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* 리스트 스타일 개선 */
+.prose ul, .prose ol {
+  margin-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.prose ul li, .prose ol li {
+  margin-bottom: 0.4em;
+  letter-spacing: -0.01em;
+}
+
+/* 마크다운 리스트 항목 강제 줄바꿈 */
+.prose ul li::before {
+  content: "• ";
+  color: #6b7280;
+  font-weight: bold;
+  margin-right: 0.4em;
+}
+
+/* 텍스트 내 * 기호 처리 */
+.prose p:has(*), .prose li:has(*) {
+  white-space: pre-wrap;
+  letter-spacing: -0.01em;
+}
+
+/* 리스트 항목 강제 분리 */
+.prose ul li, .prose ol li {
+  display: block;
+  margin-bottom: 0.3em;
+  padding-left: 0.4em;
+  letter-spacing: -0.01em;
+}
+
+/* * 기호로 시작하는 리스트 항목 강제 처리 */
+.prose p:contains("*"), .prose li:contains("*") {
+  white-space: pre-wrap !important;
+  letter-spacing: -0.01em;
+}
+
+/* 리스트 항목 내부 줄바꿈 강제 */
+.prose ul li, .prose ol li {
+  white-space: pre-wrap !important;
+  line-height: 1.3;
+  margin-bottom: 0.3em;
+  letter-spacing: -0.01em;
+}
+
+/* * 기호가 포함된 텍스트 강제 줄바꿈 */
+.prose p, .prose li {
+  white-space: pre-wrap !important;
+  letter-spacing: -0.01em;
+}
+
+/* 리스트 컨테이너 스타일 강화 */
+.prose ul, .prose ol {
+  margin-left: 1.5em;
+  margin-bottom: 0.75em;
+  padding-left: 0;
+}
+
+/* 리스트 항목 간격 강화 */
+.prose ul li + li, .prose ol li + li {
+  margin-top: 0.2em;
 }

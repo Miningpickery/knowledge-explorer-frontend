@@ -4,215 +4,432 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChatMessage, MessageSender, ChatSession } from './types';
-import { createChatSession, sendMessage } from './services/geminiService';
-import * as chatHistoryService from './services/chatHistoryService';
-import ChatInterface from './components/ChatInterface';
 import ChatHistory from './components/ChatHistory';
-import { Chat } from '@google/genai';
-import { Menu, X } from 'lucide-react';
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+import ChatInterface from './components/ChatInterface';
+import { ChatMessage, ChatSession, MessageSender } from './types';
+import { getAllChats, createNewChat as createChatService, deleteChat } from './services/chatHistoryService';
 
 const App: React.FC = () => {
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [activeChat, setActiveChat] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [chat, setChat] = useState<Chat | null>(null);
-  const [allChats, setAllChats] = useState<ChatSession[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  const loadChats = useCallback(() => {
-    const chats = chatHistoryService.getAllChats();
-    setAllChats(chats);
-    if (chats.length > 0) {
-      const lastActiveId = localStorage.getItem('lastActiveChatId') || chats[0].id;
-      handleSelectChat(lastActiveId);
-    } else {
-      handleNewChat();
+  // 채팅 목록 로드
+  const loadChats = useCallback(async () => {
+    try {
+      console.log('Loading chats...');
+      const chatList = await getAllChats();
+      console.log('Chats loaded:', chatList);
+      setChats(chatList);
+      
+      // 첫 번째 채팅을 자동으로 선택 (초기 로드 시에만)
+      if (chatList.length > 0 && !activeChat) {
+        console.log('Setting active chat:', chatList[0]);
+        setActiveChat(chatList[0]);
+      }
+    } catch (err) {
+      console.error('Failed to load chats:', err);
+      setError('채팅 목록을 불러오는데 실패했습니다.');
+    }
+  }, []); // activeChat 의존성 제거하여 무한 루프 방지
+
+  // 메시지 로드
+  const loadMessages = useCallback(async (chatId: string) => {
+    try {
+      // 백엔드에서 메시지를 가져오는 방식으로 변경
+      const response = await fetch(`http://localhost:3001/api/chats/${chatId}`);
+      if (response.ok) {
+        const chat = await response.json();
+        setMessages(chat.messages || []);
+      } else {
+        setMessages([]);
+      }
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      setMessages([]);
     }
   }, []);
 
-  useEffect(() => {
-    loadChats();
+  // 새 채팅 생성
+  const handleCreateNewChat = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const newChat = await createChatService();
+      console.log('Setting active chat:', newChat);
+      setActiveChat(newChat);
+      setMessages([]);
+      await loadChats(); // 채팅 목록 새로고침
+    } catch (err) {
+      console.error('Failed to create new chat:', err);
+      setError('새 채팅을 생성하는데 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [loadChats]);
 
-  useEffect(() => {
-    if (activeChatId) {
-      const activeChat = allChats.find(c => c.id === activeChatId);
-      if (activeChat) {
-        setMessages(activeChat.messages);
-        setChat(createChatSession(activeChat.messages));
-        localStorage.setItem('lastActiveChatId', activeChatId);
-      }
+  // 메시지 전송 (스트리밍)
+  const sendMessage = useCallback(async (text: string) => {
+    console.log('sendMessage called with:', { text, activeChat: activeChat?.id });
+    if (!activeChat || !text || typeof text !== 'string' || !text.trim()) {
+      console.log('sendMessage early return:', { activeChat: !!activeChat, text: !!text, textType: typeof text, textTrim: text?.trim() });
+      return;
     }
-  }, [activeChatId, allChats]);
 
-  const handleSendMessage = async (query: string) => {
-    if (!query.trim() || isLoading || !chat || !activeChatId) return;
-
-    setIsLoading(true);
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      text: query,
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text: text.trim(),
       sender: MessageSender.USER,
-    };
-    
-    // This is the state of messages before the current turn's user message.
-    const messagesBeforeTurn = [...messages];
-    
-    const modelPlaceholderId = `model-${Date.now()}`;
-    const modelPlaceholder: ChatMessage = {
-      id: modelPlaceholderId,
-      text: '생각 중...',
-      sender: MessageSender.MODEL,
-      isLoading: true,
+      isLoading: false
     };
 
-    // Update UI with user message and placeholder
-    setMessages([...messagesBeforeTurn, userMessage, modelPlaceholder]);
+    // 사용자 메시지 추가
+    setMessages(prev => [...prev, userMessage]);
+
+    // AI 응답 대기 메시지 추가
+    const aiLoadingMessage: ChatMessage = {
+      id: `loading-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text: "준비",
+      sender: MessageSender.MODEL,
+      isLoading: true
+    };
+    setMessages(prev => [...prev, aiLoadingMessage]);
+
+    // 로딩 텍스트 변경 타이머 시작
+    const loadingWords = ['준비하고 있어요', '질문을 이해하고 있어요', '정보를 찾고 있어요', '생각하고 있어요', '답변을 만들고 있어요', '검토하고 있어요'];
+    let wordIndex = 0;
+    const loadingInterval = setInterval(() => {
+      wordIndex = (wordIndex + 1) % loadingWords.length;
+      setMessages(prev => prev.map(msg => 
+        msg.isLoading ? { ...msg, text: loadingWords[wordIndex] } : msg
+      ));
+    }, 2000);
 
     try {
-      const response = await sendMessage(chat, query);
+      setIsLoading(true);
+      console.log('Sending message to API:', { text: text.trim(), chatId: activeChat.id });
       
-      const newModelMessages: ChatMessage[] = [];
-      
-      // Advanced chunking logic to handle paragraphs and lists
-      const finalChunks: string[] = [];
-      const preliminaryChunks = response.answer.split('\n\n').filter(chunk => chunk.trim() !== '');
-      for (const chunk of preliminaryChunks) {
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
-        const isList = lines.length > 1 && lines.some(line => /^\s*(\*\*|[-*]|\d+\.)/.test(line.trim()));
-        if (isList) {
-          finalChunks.push(...lines);
-        } else {
-          finalChunks.push(chunk);
-        }
-      }
-      const answerChunks = finalChunks;
-      
-      if (answerChunks.length === 0 && response.answer.trim()) {
-        answerChunks.push(response.answer.trim());
+      // 스트리밍 응답 처리
+      const response = await fetch(`http://localhost:3001/api/chats/${activeChat.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: text.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
       }
 
-      if (answerChunks.length === 0) {
-        newModelMessages.push({
-          id: `model-${Date.now()}`,
-          text: "이 질문에 대한 답변을 찾지 못했습니다.",
-          sender: MessageSender.MODEL,
-          sources: response.sources,
-        });
-      } else {
-        for (let i = 0; i < answerChunks.length; i++) {
-          const chunk = answerChunks[i];
-          const isLastChunk = i === answerChunks.length - 1;
-          
-          const chunkMessage: ChatMessage = {
-            id: `model-chunk-${Date.now()}-${i}`,
-            text: chunk,
-            sender: MessageSender.MODEL,
-            sources: isLastChunk ? response.sources : undefined,
-          };
-          
-          newModelMessages.push(chunkMessage);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-          // Progressively update UI state for streaming effect
-          setMessages([...messagesBeforeTurn, userMessage, ...newModelMessages]);
-          
-          if (!isLastChunk) {
-            await sleep(1000);
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        buffer += chunk;
+
+        // Server-Sent Events 형식 파싱
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 마지막 불완전한 라인은 버퍼에 보관
+
+        for (const line of lines) {
+          if (line.startsWith('DATA: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'streaming') {
+                // 스트리밍 메시지 처리 - 기존 메시지 업데이트
+                setMessages(prev => {
+                  const filteredMessages = prev.filter(msg => !msg.isLoading);
+                  
+                  // 스트리밍 메시지는 paragraphIndex를 기반으로 고유 ID 생성
+                  const streamingId = `streaming-${data.paragraphIndex}-${activeChat?.id}`;
+                  const existingMessageIndex = filteredMessages.findIndex(msg => 
+                    msg.id === streamingId || 
+                    (msg.isStreaming && msg.sender === MessageSender.MODEL)
+                  );
+                  
+                  if (existingMessageIndex >= 0) {
+                    // 기존 메시지 업데이트
+                    const updatedMessages = [...filteredMessages];
+                    updatedMessages[existingMessageIndex] = {
+                      ...updatedMessages[existingMessageIndex],
+                      id: streamingId,
+                      text: data.message.text,
+                      isStreaming: true
+                    };
+                    return updatedMessages;
+                  } else {
+                    // 새 메시지 추가
+                    return [...filteredMessages, {
+                      ...data.message,
+                      id: streamingId,
+                      isLoading: false,
+                      isStreaming: true
+                    }];
+                  }
+                });
+              } else if (data.type === 'paragraph' || data.type === 'followUp') {
+                // 로딩 메시지 제거하고 새로운 메시지 추가
+                setMessages(prev => {
+                  const filteredMessages = prev.filter(msg => !msg.isLoading);
+                  
+                  // 문단 메시지는 paragraphIndex를 기반으로 고유 ID 생성
+                  const paragraphId = `paragraph-${data.paragraphIndex}-${activeChat?.id}-${Date.now()}`;
+                  const streamingId = `streaming-${data.paragraphIndex}-${activeChat?.id}`;
+                  
+                  // 스트리밍 메시지를 완료된 메시지로 변환
+                  const existingMessageIndex = filteredMessages.findIndex(msg => 
+                    msg.id === streamingId || msg.isStreaming
+                  );
+                  
+                  if (existingMessageIndex >= 0) {
+                    // 기존 스트리밍 메시지를 완료된 메시지로 업데이트
+                    const updatedMessages = [...filteredMessages];
+                    updatedMessages[existingMessageIndex] = {
+                      ...updatedMessages[existingMessageIndex],
+                      id: paragraphId,
+                      isStreaming: false,
+                      followUpQuestions: data.type === 'followUp' ? [] : undefined
+                    };
+                    return updatedMessages;
+                  } else {
+                    // 새 메시지 추가
+                    return [...filteredMessages, {
+                      ...data.message,
+                      id: paragraphId,
+                      isLoading: false,
+                      isStreaming: false,
+                      followUpQuestions: data.type === 'followUp' ? [] : undefined
+                    }];
+                  }
+                });
+
+              } else if (data.type === 'error') {
+                // 로딩 메시지 제거하고 에러 메시지 추가
+                setMessages(prev => {
+                  const filteredMessages = prev.filter(msg => !msg.isLoading);
+                  const errorId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                  return [...filteredMessages, {
+                    ...data.message,
+                    id: errorId,
+                    isLoading: false
+                  }];
+                });
+              } else if (data.type === 'complete') {
+                // 스트리밍 완료 - 스트리밍 상태 해제
+                setMessages(prev => prev.map(msg => ({ ...msg, isLoading: false, isStreaming: false })));
+                console.log('Streaming completed');
+                
+                // 로딩 타이머 정리
+                if (loadingInterval) {
+                  clearInterval(loadingInterval);
+                }
+                
+                // 스트리밍 완료 후 메시지 새로고침 (맥락 단위로 저장된 메시지들 로드)
+                setTimeout(async () => {
+                  if (activeChat) {
+                    await loadMessages(activeChat.id);
+                  }
+                }, 100);
+              } else if (data.type === 'refresh') {
+                // 메시지 새로고침 신호
+                console.log('Refreshing messages from database...');
+                setTimeout(async () => {
+                  if (activeChat) {
+                    await loadMessages(activeChat.id);
+                  }
+                }, 200);
+              }
+            } catch (parseError) {
+              console.error('Failed to parse streaming data:', parseError);
+            }
           }
         }
       }
 
-      if (response.followUpQuestions && response.followUpQuestions.length > 0) {
-        await sleep(1000);
-        const followUpMessage: ChatMessage = {
-          id: `model-followup-${Date.now()}`,
-          text: '',
-          sender: MessageSender.MODEL,
-          followUpQuestions: response.followUpQuestions,
-        };
-        newModelMessages.push(followUpMessage);
-        // Update UI with follow-up questions
-        setMessages([...messagesBeforeTurn, userMessage, ...newModelMessages]);
-      }
-      
-      // Persist the final, complete history for this turn
-      const finalMessages = [...messagesBeforeTurn, userMessage, ...newModelMessages];
-      chatHistoryService.updateChat(activeChatId, { messages: finalMessages });
-      setAllChats(chatHistoryService.getAllChats());
-
-    } catch (e: any) {
-      const errorMessage: ChatMessage = {
-        id: modelPlaceholderId,
-        text: `오류: ${e.message || 'AI로부터 응답을 받지 못했습니다.'}`,
-        sender: MessageSender.MODEL,
-        isLoading: false,
-      };
-      setMessages(prev => {
-        const updated = prev.map(msg => msg.id === modelPlaceholderId ? errorMessage : msg);
-        chatHistoryService.updateChat(activeChatId, { messages: updated });
-        setAllChats(chatHistoryService.getAllChats());
-        return updated;
-      });
+      // 채팅 목록 새로고침
+      await loadChats();
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setError('메시지 전송에 실패했습니다.');
+      // 에러 발생 시 로딩 메시지 제거
+      setMessages(prev => prev.filter(msg => !msg.isLoading));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleNewChat = () => {
-    const welcomeMessage: ChatMessage = {
-      id: 'initial-welcome',
-      text: "안녕하세요! 저는 당신의 지식 탐험가입니다. 오늘은 어떤 주제를 탐험해볼까요?",
-      sender: MessageSender.MODEL,
-    };
-    const newChat = chatHistoryService.createNewChat([welcomeMessage]);
-    setAllChats(prev => [newChat, ...prev]);
-    setActiveChatId(newChat.id);
-  };
-  
-  const handleSelectChat = (id: string) => {
-    setActiveChatId(id);
-  };
-  
-  const handleDeleteChat = (id: string) => {
-    chatHistoryService.deleteChat(id);
-    const remainingChats = allChats.filter(c => c.id !== id);
-    setAllChats(remainingChats);
-    if (activeChatId === id) {
-      if (remainingChats.length > 0) {
-        setActiveChatId(remainingChats[0].id);
-      } else {
-        handleNewChat();
+      // 로딩 타이머 정리
+      if (loadingInterval) {
+        clearInterval(loadingInterval);
       }
     }
+  }, [activeChat, loadChats]);
+
+  // 채팅 선택
+  const selectChat = useCallback(async (chatId: string) => {
+    console.log('Selecting chat:', chatId);
+    const selectedChat = chats.find(chat => chat.id === chatId);
+    if (selectedChat) {
+      setActiveChat(selectedChat);
+      await loadMessages(chatId);
+    }
+  }, [chats, loadMessages]);
+
+  // 채팅 삭제
+  const handleDeleteChat = useCallback(async (chatId: string) => {
+    try {
+      // 백엔드에서 채팅 삭제
+      await deleteChat(chatId);
+      
+      // 현재 활성 채팅이 삭제된 경우 첫 번째 채팅 선택
+      if (activeChat?.id === chatId) {
+        const remainingChats = chats.filter(chat => chat.id !== chatId);
+        if (remainingChats.length > 0) {
+          setActiveChat(remainingChats[0]);
+          await loadMessages(remainingChats[0].id);
+        } else {
+          setActiveChat(null);
+          setMessages([]);
+        }
+      }
+      
+      // 채팅 목록 새로고침
+      await loadChats();
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      setError('채팅 삭제에 실패했습니다.');
+    }
+  }, [activeChat, chats, loadChats, loadMessages]);
+
+  // 초기화
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await loadChats();
+        setIsInitialized(true);
+      } catch (err) {
+        console.error('Failed to initialize:', err);
+        setError('앱 초기화에 실패했습니다.');
+      }
+    };
+
+    initialize();
+  }, []);
+
+  // 활성 채팅 변경 시 메시지 로드
+  useEffect(() => {
+    if (activeChat && isInitialized) {
+      loadMessages(activeChat.id);
+    }
+  }, [activeChat, isInitialized, loadMessages]);
+
+  // 에러 표시
+  const dismissError = () => {
+    setError(null);
   };
 
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen max-h-screen antialiased bg-[#F5F1E9] font-sans">
+    <div className="min-h-screen bg-gray-100 flex">
+      {/* 사이드바 */}
+      <div className={`${isSidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-white shadow-lg overflow-hidden`}>
       <ChatHistory 
-        chats={allChats}
-        activeChatId={activeChatId}
-        onNewChat={handleNewChat}
-        onSelectChat={handleSelectChat}
+          chats={chats}
+          activeChatId={activeChat?.id || null}
+          onNewChat={handleCreateNewChat}
+          onSelectChat={selectChat}
         onDeleteChat={handleDeleteChat}
-        isOpen={isSidebarOpen}
-        setIsOpen={setIsSidebarOpen}
-      />
-      <div className="flex-1 flex flex-col relative">
+        />
+      </div>
+
+      {/* 메인 콘텐츠 */}
+      <div className="flex-1 flex flex-col">
+        {/* 헤더 */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute top-2 left-2 z-20 p-2 rounded-md hover:bg-black/10 transition-colors md:hidden"
-          aria-label="Toggle sidebar"
-        >
-          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-semibold text-gray-800">지식 탐험가</h1>
+            </div>
+            
+            {activeChat && (
+              <div className="text-sm text-gray-500">
+                {activeChat.title}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* 에러 메시지 */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mx-4 mt-4 flex justify-between items-center">
+            <span>{error}</span>
+            <button
+              onClick={dismissError}
+              className="text-red-700 hover:text-red-900"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
         </button>
+          </div>
+        )}
+
+        {/* 채팅 인터페이스 */}
+        {activeChat ? (
         <ChatInterface
           messages={messages}
-          onSendMessage={handleSendMessage}
+            onSendMessage={sendMessage}
           isLoading={isLoading}
         />
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">새로운 대화를 시작하세요</h3>
+              <p className="text-gray-500 mb-4">지식 탐험가와 함께 새로운 지식을 발견해보세요.</p>
+              <button
+                onClick={handleCreateNewChat}
+                disabled={isLoading}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? '생성 중...' : '새 대화 시작'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

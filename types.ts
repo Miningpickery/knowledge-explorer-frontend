@@ -18,6 +18,7 @@ export interface ChatMessage {
   text: string;
   sender: MessageSender;
   isLoading?: boolean;
+  isStreaming?: boolean;
   sources?: GroundingSource[];
   followUpQuestions?: string[];
 }
