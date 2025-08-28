@@ -46,7 +46,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
   };
 
   // messages가 undefined이거나 null일 때 빈 배열로 처리
-  const safeMessages = messages || [];
+  console.log('🔍 ChatInterface messages prop:', {
+    messages,
+    type: typeof messages,
+    isArray: Array.isArray(messages),
+    length: messages?.length
+  });
+  const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto w-full">
