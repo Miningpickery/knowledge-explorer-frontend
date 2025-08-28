@@ -3,7 +3,18 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { logger, performanceMetrics } = require('../services/monitoring');
+// const { logger, performanceMetrics } = require('../services/monitoring');
+
+// 임시 로거 함수들
+const logger = {
+  userActivity: (userId, action, details) => console.log(`User Activity: ${action}`, { userId, ...details }),
+  error: (message, error, meta) => console.error(`Error: ${message}`, error, meta),
+  info: (message, meta) => console.log(`Info: ${message}`, meta),
+};
+
+const performanceMetrics = {
+  recordMetric: (name, value, tags) => console.log(`Metric: ${name} = ${value}`, tags),
+};
 
 const router = express.Router();
 

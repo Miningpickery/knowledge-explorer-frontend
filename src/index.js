@@ -66,15 +66,31 @@ const authRoutes = require('./routes/authRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 
-// 📊 모니터링 시스템
-const { ErrorMonitoring, logger } = require('./services/monitoring');
-const { notificationManager } = require('./services/notifications');
-const { 
-  performanceTrackingMiddleware,
-  errorTrackingMiddleware,
-  userActivityTrackingMiddleware,
-  initializeMonitoring 
-} = require('./middleware/monitoring');
+// 📊 모니터링 시스템 (임시 비활성화)
+// const { ErrorMonitoring, logger } = require('./services/monitoring');
+// const { notificationManager } = require('./services/notifications');
+// const { 
+//   performanceTrackingMiddleware,
+//   errorTrackingMiddleware,
+//   userActivityTrackingMiddleware,
+//   initializeMonitoring 
+// } = require('./middleware/monitoring');
+
+// 임시 모니터링 함수들
+const ErrorMonitoring = {
+  getRequestHandler: () => (req, res, next) => next(),
+  getErrorHandler: () => (err, req, res, next) => next(err),
+};
+
+const logger = {
+  info: (message, meta) => console.log(`Info: ${message}`, meta),
+  error: (message, error, meta) => console.error(`Error: ${message}`, error, meta),
+  warn: (message, meta) => console.warn(`Warn: ${message}`, meta),
+};
+
+const performanceTrackingMiddleware = (req, res, next) => next();
+const errorTrackingMiddleware = (err, req, res, next) => next(err);
+const userActivityTrackingMiddleware = (req, res, next) => next();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
