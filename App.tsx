@@ -67,6 +67,7 @@ const App: React.FC = () => {
     showProfile,
     login,
     logout,
+    updateUser,
     setShowProfile,
     setError: setAuthError,
   } = useAuthStore();
@@ -160,14 +161,12 @@ const App: React.FC = () => {
         console.error('❌ 인증 상태 확인 오류:', error);
         // 토큰은 일단 유지하고 재시도할 수 있도록 함
         console.log('⚠️ 토큰 유지하고 재시도 준비');
-        setIsAuthenticated(false);
-        setUser(null);
+        logout();
         return { isAuthenticated: false, user: null };
       }
     } else {
       console.log('🔒 토큰 없음 - 인증되지 않은 상태');
-      setIsAuthenticated(false);
-      setUser(null);
+      logout();
       return { isAuthenticated: false, user: null };
     }
   }, []);
@@ -176,10 +175,9 @@ const App: React.FC = () => {
     // 두 스토리지 모두에서 토큰 제거
     localStorage.removeItem('token');
     sessionStorage.removeItem('token');
-    setUser(null);
-    setIsAuthenticated(false);
+    logout();
     setShowProfile(false);
-  }, []);
+  }, [logout]);
 
   // 프로필 창 닫기 함수 최적화
   const closeProfile = useCallback(() => {
@@ -187,8 +185,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleProfileUpdate = useCallback((updatedUser: any) => {
-    setUser({ ...user, ...updatedUser });
-  }, [user]);
+    updateUser(updatedUser);
+  }, [updateUser]);
 
   // 🔄 라우팅 처리
   useEffect(() => {
@@ -784,7 +782,7 @@ const App: React.FC = () => {
         console.log('✅ 앱 초기화 완료');
       } catch (err) {
         console.error('❌ 앱 초기화 실패:', err);
-        setError('앱 초기화에 실패했습니다.');
+        setAuthError('앱 초기화에 실패했습니다.');
         // 에러가 발생해도 초기화는 완료로 처리
         setIsInitialized(true);
       }
