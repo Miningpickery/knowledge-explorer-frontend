@@ -4,18 +4,54 @@
 */
 
 import React, { useEffect, useCallback, useRef } from 'react';
-import { 
-  StreamingMessageData,
-  MessageSender,
-  ChatSession,
-  ChatMessage
-} from './src/types/index';
+// 모든 타입을 직접 정의하여 임시 해결
+enum MessageSender {
+  USER = 'user',
+  MODEL = 'model',
+}
 
-// ChatStatus를 직접 정의하여 임시 해결
 enum ChatStatus {
   ACTIVE = 'active',
   ARCHIVED = 'archived',
   DELETED = 'deleted',
+}
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: MessageSender;
+  timestamp: string;
+  sources?: string[];
+  followUpQuestions?: string[];
+  context?: string;
+  isLoading?: boolean;
+  isStreaming?: boolean;
+  error?: string;
+}
+
+interface ChatSession {
+  id: string;
+  user_id?: number;
+  title: string;
+  status: ChatStatus;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  messages?: ChatMessage[];
+  context?: string;
+  tags?: string[];
+  messageCount?: number;
+}
+
+interface StreamingMessageData {
+  type: 'streaming' | 'paragraph' | 'followUp' | 'error' | 'complete' | 'refresh';
+  message: ChatMessage;
+  paragraphIndex?: number;
+  totalParagraphs?: number;
+  wordIndex?: number;
+  totalWords?: number;
+  followUpQuestions?: string[];
+  progress?: number;
 }
 
 // 🏪 New Store Imports

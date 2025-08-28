@@ -1,8 +1,8 @@
 // 📊 Monitoring Service
 // 상용화 수준의 모니터링 및 에러 추적
 
-const Sentry = require('@sentry/node');
-const { ProfilingIntegration } = require('@sentry/profiling-node');
+// const Sentry = require('@sentry/node');
+// const { ProfilingIntegration } = require('@sentry/profiling-node');
 const winston = require('winston');
 const pino = require('pino');
 
@@ -11,93 +11,36 @@ const pino = require('pino');
  */
 class ErrorMonitoring {
   static initialize() {
-    if (process.env.SENTRY_DSN) {
-      Sentry.init({
-        dsn: process.env.SENTRY_DSN,
-        environment: process.env.NODE_ENV || 'development',
-        integrations: [
-          // Node.js 성능 프로파일링
-          new ProfilingIntegration(),
-          // HTTP 요청 추적
-          new Sentry.Integrations.Http({ tracing: true }),
-          // Express 미들웨어 추적
-          new Sentry.Integrations.Express({ app: null }),
-          // PostgreSQL 쿼리 추적
-          new Sentry.Integrations.Postgres(),
-          // Redis 명령어 추적
-          new Sentry.Integrations.Redis(),
-        ],
-        
-        // 성능 모니터링
-        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-        profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
-        
-        // 에러 필터링
-        beforeSend(event) {
-          // 개발 환경에서는 민감한 정보 제거
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Sentry Event:', event);
-          }
-          
-          // 스팸성 에러 필터링
-          if (event.exception) {
-            const error = event.exception.values[0];
-            if (error.type === 'ValidationError' && error.value?.includes('rate limit')) {
-              return null; // 전송하지 않음
-            }
-          }
-          
-          return event;
-        },
-        
-        // 릴리즈 정보
-        release: process.env.npm_package_version || '1.0.0',
-        
-        // 사용자 컨텍스트 자동 수집
-        sendDefaultPii: false, // GDPR 준수
-      });
-      
-      console.log('✅ Sentry error monitoring initialized');
-    } else {
-      console.log('⚠️ Sentry DSN not configured - error monitoring disabled');
-    }
+    console.log('⚠️ Sentry monitoring disabled for development');
   }
   
   /**
    * 사용자 컨텍스트 설정
    */
   static setUserContext(user) {
-    Sentry.setUser({
-      id: user.id,
-      email: user.email,
-      username: user.name,
-    });
+    console.log('⚠️ Sentry setUserContext disabled');
   }
   
   /**
    * 추가 컨텍스트 설정
    */
   static setContext(key, context) {
-    Sentry.setContext(key, context);
+    console.log('⚠️ Sentry setContext disabled');
   }
   
   /**
    * 수동 에러 리포팅
    */
   static captureError(error, context = {}) {
-    Sentry.withScope((scope) => {
-      Object.keys(context).forEach((key) => {
-        scope.setTag(key, context[key]);
-      });
-      Sentry.captureException(error);
-    });
+    console.log('⚠️ Sentry captureError disabled:', error.message);
   }
   
   /**
    * 성능 추적 시작
    */
   static startTransaction(name, op) {
-    return Sentry.startTransaction({ name, op });
+    console.log('⚠️ Sentry startTransaction disabled');
+    return null;
   }
   
   /**
