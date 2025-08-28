@@ -8,9 +8,15 @@ import {
   StreamingMessageData,
   MessageSender,
   ChatSession,
-  ChatMessage,
-  ChatStatus
+  ChatMessage
 } from './src/types/index';
+
+// ChatStatus를 직접 정의하여 임시 해결
+enum ChatStatus {
+  ACTIVE = 'active',
+  ARCHIVED = 'archived',
+  DELETED = 'deleted',
+}
 
 // 🏪 New Store Imports
 import { useChatStore } from './src/stores/chatStore';
