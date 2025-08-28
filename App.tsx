@@ -460,29 +460,26 @@ const App: React.FC = () => {
     };
 
     // 사용자 메시지 추가
-    setMessages((prev: ChatMessage[]) => {
-      const newMessages = [...prev, userMessage];
+    const currentMessages = useChatStore.getState().messages;
+    const newMessages = [...currentMessages, userMessage];
+    setMessages(newMessages);
+    
+    // 익명 사용자인 경우 로컬 스토리지에 저장
+    if (!isAuthenticated && activeChat) {
+      const updatedChat = { ...activeChat, messages: newMessages };
       
-      // 익명 사용자인 경우 로컬 스토리지에 저장
-      if (!isAuthenticated && activeChat) {
-        const updatedChat = { ...activeChat, messages: newMessages };
-        
-        // 채팅 목록 업데이트
-        setChats(prevChats => {
-          const updatedChats = prevChats.map(chat => 
-            chat.id === activeChat.id ? updatedChat : chat
-          );
-          
-          // 로컬 스토리지에 저장
-          localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
-          localStorage.setItem('active_chat_id', activeChat.id);
-          
-          return updatedChats;
-        });
-      }
+      // 채팅 목록 업데이트
+      const currentChats = useChatStore.getState().chats;
+      const updatedChats = currentChats.map(chat => 
+        chat.id === activeChat.id ? updatedChat : chat
+      );
       
-      return newMessages;
-    });
+      setChats(updatedChats);
+      
+      // 로컬 스토리지에 저장
+      localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
+      localStorage.setItem('active_chat_id', activeChat.id);
+    }
 
     // AI 응답 대기 메시지 추가
     const aiLoadingMessage: ChatMessage = {
@@ -492,38 +489,38 @@ const App: React.FC = () => {
       timestamp: new Date().toISOString(),
       isLoading: true
     };
-    setMessages(prev => {
-      const newMessages = [...prev, aiLoadingMessage];
+    
+    const currentMessagesWithLoading = useChatStore.getState().messages;
+    const newMessagesWithLoading = [...currentMessagesWithLoading, aiLoadingMessage];
+    setMessages(newMessagesWithLoading);
+    
+    // 익명 사용자인 경우 로컬 스토리지에 저장
+    if (!isAuthenticated && activeChat) {
+      const updatedChat = { ...activeChat, messages: newMessagesWithLoading };
       
-      // 익명 사용자인 경우 로컬 스토리지에 저장
-      if (!isAuthenticated && activeChat) {
-        const updatedChat = { ...activeChat, messages: newMessages };
-        
-        // 채팅 목록 업데이트
-        setChats(prevChats => {
-          const updatedChats = prevChats.map(chat => 
-            chat.id === activeChat.id ? updatedChat : chat
-          );
-          
-          // 로컬 스토리지에 저장
-          localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
-          localStorage.setItem('active_chat_id', activeChat.id);
-          
-          return updatedChats;
-        });
-      }
+      // 채팅 목록 업데이트
+      const currentChats = useChatStore.getState().chats;
+      const updatedChats = currentChats.map(chat => 
+        chat.id === activeChat.id ? updatedChat : chat
+      );
       
-      return newMessages;
-    });
+      setChats(updatedChats);
+      
+      // 로컬 스토리지에 저장
+      localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
+      localStorage.setItem('active_chat_id', activeChat.id);
+    }
 
     // 로딩 텍스트 변경 타이머 시작
     const loadingWords = ['준비하고 있어요', '질문을 이해하고 있어요', '정보를 찾고 있어요', '생각하고 있어요', '답변을 만들고 있어요', '검토하고 있어요'];
     let wordIndex = 0;
     const loadingInterval = setInterval(() => {
       wordIndex = (wordIndex + 1) % loadingWords.length;
-      setMessages(prev => prev.map(msg => 
+      const currentMessages = useChatStore.getState().messages;
+      const updatedMessages = currentMessages.map(msg => 
         msg.isLoading ? { ...msg, text: loadingWords[wordIndex] } : msg
-      ));
+      );
+      setMessages(updatedMessages);
     }, 2000);
 
     try {
@@ -1019,11 +1016,19 @@ const App: React.FC = () => {
         {/* 채팅 인터페이스 - 항상 렌더링하되 조건부로 표시 */}
         <div className={`flex-1 ${showProfile ? 'hidden' : 'block'}`}>
           {activeChat ? (
-            <ChatInterface
-              messages={messages}
-              onSendMessage={sendMessage}
-              isLoading={isLoading}
-            />
+            <>
+              {console.log('🔍 App.tsx messages before ChatInterface:', {
+                messages,
+                type: typeof messages,
+                isArray: Array.isArray(messages),
+                length: messages?.length
+              })}
+              <ChatInterface
+                messages={Array.isArray(messages) ? messages : []}
+                onSendMessage={sendMessage}
+                isLoading={isLoading}
+              />
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="text-center max-w-sm md:max-w-md mx-auto">

@@ -204,9 +204,6 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  // 📊 모니터링 시스템 초기화
-  initializeMonitoring();
-  
   // 🚀 서버 시작 로깅
   logger.info('Knowledge Explorer Backend started successfully', {
     type: 'server_start',
@@ -221,13 +218,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Knowledge Explorer Backend running on port ${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/health`);
   console.log(`📊 Monitoring Dashboard: http://localhost:${PORT}/health/comprehensive`);
-  
-  // 🔔 시작 알림 전송
-  notificationManager.sendAlert('info', 'Server Started', 
-    `Knowledge Explorer Backend has started successfully on port ${PORT}`, {
-      environment: process.env.NODE_ENV,
-      port: PORT,
-      nodeVersion: process.version,
-    }
-  );
 });
