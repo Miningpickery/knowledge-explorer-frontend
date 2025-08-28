@@ -146,15 +146,13 @@ const App: React.FC = () => {
           const userData = await response.json();
           console.log('🔐 사용자 데이터 로드:', userData);
           const userInfo = userData.data; // userData.data에서 실제 사용자 정보 추출
-          setUser(userInfo);
-          setIsAuthenticated(true);
+          login(userInfo, token);
           console.log('✅ 인증 성공:', { userId: userInfo?.id, email: userInfo?.email });
           return { isAuthenticated: true, user: userInfo };
         } else {
           console.log('❌ 인증 실패 - 토큰 제거');
           localStorage.removeItem('token');
-          setIsAuthenticated(false);
-          setUser(null);
+          logout();
           return { isAuthenticated: false, user: null };
         }
       } catch (error) {
@@ -314,7 +312,7 @@ const App: React.FC = () => {
       updated_at: new Date().toISOString(),
       messages: []
     };
-    setActiveChat(newChat);
+    setActiveChatId(newChat.id);
     setChats([newChat]);
     
     // 로컬 스토리지에 저장
@@ -328,7 +326,7 @@ const App: React.FC = () => {
   // 새 채팅 생성
   const handleCreateNewChat = useCallback(async () => {
     try {
-      setIsLoading(true);
+      setGlobalLoading(true);
 
       // 인증된 사용자인 경우 서버에 새 채팅 생성
       if (isAuthenticated) {
@@ -347,8 +345,7 @@ const App: React.FC = () => {
         if (!token) {
           console.error('❌ 토큰 없음');
           alert('인증 토큰이 없습니다. 다시 로그인해주세요.');
-          setIsAuthenticated(false);
-          setUser(null);
+          logout();
           return;
         }
 
@@ -365,7 +362,7 @@ const App: React.FC = () => {
       if (response.ok) {
         const newChat = await response.json();
         console.log('Setting active chat:', newChat);
-        setActiveChat(newChat);
+        setActiveChatId(newChat.id);
         setMessages([]);
         await loadChats(); // 채팅 목록 새로고침
         } else if (response.status === 401) {
@@ -373,8 +370,7 @@ const App: React.FC = () => {
           alert('인증이 만료되었습니다. 다시 로그인해주세요.');
           localStorage.removeItem('token');
           sessionStorage.removeItem('token');
-          setIsAuthenticated(false);
-          setUser(null);
+          logout();
         } else {
           throw new Error('Failed to create new chat');
         }
@@ -388,7 +384,7 @@ const App: React.FC = () => {
           updated_at: new Date().toISOString(),
           messages: []
         };
-        setActiveChat(newChat);
+        setActiveChatId(newChat.id);
         setMessages([]);
         console.log('✅ 익명 새 채팅 생성 완료');
       }
@@ -396,9 +392,9 @@ const App: React.FC = () => {
 
     } catch (err) {
       console.error('Failed to create new chat:', err);
-      setError('새 채팅을 생성하는데 실패했습니다.');
+      setChatError('새 채팅을 생성하는데 실패했습니다.');
     } finally {
-      setIsLoading(false);
+      setGlobalLoading(false);
     }
   }, [loadChats, isAuthenticated]);
 
@@ -762,7 +758,7 @@ const App: React.FC = () => {
               if (activeChat) {
                 console.log('🔄 로컬 세션 복원 중...');
                 setChats(parsedChats);
-                setActiveChat(activeChat);
+                setActiveChatId(activeChat.id);
                 console.log('✅ 로컬 세션 복원 완료');
               } else {
                 console.log('❌ 활성 채팅을 찾을 수 없음 - 새 채팅 시작');
@@ -778,13 +774,13 @@ const App: React.FC = () => {
           }
         }
         
-        setIsInitialized(true);
+        setInitialized(true);
         console.log('✅ 앱 초기화 완료');
       } catch (err) {
         console.error('❌ 앱 초기화 실패:', err);
         setAuthError('앱 초기화에 실패했습니다.');
         // 에러가 발생해도 초기화는 완료로 처리
-        setIsInitialized(true);
+        setInitialized(true);
       }
     };
 
