@@ -4,9 +4,11 @@
 */
 
 import React, { useEffect, useCallback, useRef } from 'react';
-import type { 
+import { 
   StreamingMessageData,
-  MessageSender
+  MessageSender,
+  ChatSession,
+  ChatMessage
 } from './src/types';
 
 // 🏪 New Store Imports
@@ -73,11 +75,11 @@ const App: React.FC = () => {
   } = useAuthStore();
 
   const {
-    sidebarOpen,
+    sidebarOpen: isSidebarOpen,
     theme,
     notifications,
     globalLoading,
-    setSidebarOpen,
+    setSidebarOpen: setIsSidebarOpen,
     setGlobalLoading,
     addNotification,
     removeNotification,
@@ -420,7 +422,6 @@ const App: React.FC = () => {
       // 익명 사용자인 경우 로컬 스토리지에 저장
       if (!isAuthenticated && activeChat) {
         const updatedChat = { ...activeChat, messages: newMessages };
-        setActiveChat(updatedChat);
         
         // 채팅 목록 업데이트
         setChats(prevChats => {
@@ -452,7 +453,6 @@ const App: React.FC = () => {
       // 익명 사용자인 경우 로컬 스토리지에 저장
       if (!isAuthenticated && activeChat) {
         const updatedChat = { ...activeChat, messages: newMessages };
-        setActiveChat(updatedChat);
         
         // 채팅 목록 업데이트
         setChats(prevChats => {
@@ -482,7 +482,7 @@ const App: React.FC = () => {
     }, 2000);
 
     try {
-      setIsLoading(true);
+      setGlobalLoading(true);
       console.log('Sending message to API:', { text: text.trim(), chatId: activeChat.id });
       
       // 스트리밍 응답 처리
@@ -670,11 +670,11 @@ const App: React.FC = () => {
       await loadChats();
     } catch (err) {
       console.error('Failed to send message:', err);
-      setError('메시지 전송에 실패했습니다.');
+      setChatError('메시지 전송에 실패했습니다.');
       // 에러 발생 시 로딩 메시지 제거
       setMessages(prev => prev.filter(msg => !msg.isLoading));
     } finally {
-      setIsLoading(false);
+      setGlobalLoading(false);
       // 로딩 타이머 정리
       if (loadingInterval) {
         clearInterval(loadingInterval);
@@ -687,7 +687,7 @@ const App: React.FC = () => {
     console.log('Selecting chat:', chatId);
     const selectedChat = chats.find(chat => chat.id === chatId);
     if (selectedChat) {
-      setActiveChat(selectedChat);
+      setActiveChatId(selectedChat.id);
       await loadMessages(chatId);
     }
   }, [chats, loadMessages]);
@@ -702,10 +702,10 @@ const App: React.FC = () => {
       if (activeChat?.id === chatId) {
         const remainingChats = chats.filter(chat => chat.id !== chatId);
         if (remainingChats.length > 0) {
-          setActiveChat(remainingChats[0]);
+          setActiveChatId(remainingChats[0].id);
           await loadMessages(remainingChats[0].id);
         } else {
-          setActiveChat(null);
+          setActiveChatId(null);
           setMessages([]);
         }
       }
@@ -714,7 +714,7 @@ const App: React.FC = () => {
       await loadChats();
     } catch (err) {
       console.error('Failed to delete chat:', err);
-      setError('채팅 삭제에 실패했습니다.');
+      setChatError('채팅 삭제에 실패했습니다.');
     }
   }, [activeChat, chats, loadChats, loadMessages]);
 
