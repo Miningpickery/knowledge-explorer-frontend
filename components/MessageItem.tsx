@@ -4,9 +4,27 @@
 */
 
 import React from 'react';
-import { ChatMessage, MessageSender } from '../types';
 import { Link } from 'lucide-react';
 import { Streamdown } from 'streamdown';
+
+// 타입을 직접 정의
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'model';
+  timestamp: string;
+  sources?: string[];
+  followUpQuestions?: string[];
+  context?: string;
+  isLoading?: boolean;
+  isStreaming?: boolean;
+  error?: string;
+}
+
+enum MessageSender {
+  USER = 'user',
+  MODEL = 'model',
+}
 
 interface MessageItemProps {
   message: ChatMessage;

@@ -4,10 +4,23 @@
 */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
 import MessageItem from './MessageItem';
 import { Button } from './ui/Button';
 import { Send } from 'lucide-react';
+
+// 타입을 직접 정의
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'model';
+  timestamp: string;
+  sources?: string[];
+  followUpQuestions?: string[];
+  context?: string;
+  isLoading?: boolean;
+  isStreaming?: boolean;
+  error?: string;
+}
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
