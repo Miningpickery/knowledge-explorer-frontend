@@ -8,8 +8,9 @@ import {
   StreamingMessageData,
   MessageSender,
   ChatSession,
-  ChatMessage
-} from './src/types';
+  ChatMessage,
+  ChatStatus
+} from './src/types/index';
 
 // 🏪 New Store Imports
 import { useChatStore } from './src/stores/chatStore';
@@ -309,7 +310,7 @@ const App: React.FC = () => {
     const newChat: ChatSession = {
       id: `chat-${Date.now()}`,
       title: '새로운 대화',
-      status: 'active' as const,
+      status: ChatStatus.ACTIVE,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       messages: []
@@ -412,11 +413,12 @@ const App: React.FC = () => {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       text: text.trim(),
       sender: MessageSender.USER,
+      timestamp: new Date().toISOString(),
       isLoading: false
     };
 
     // 사용자 메시지 추가
-    setMessages(prev => {
+    setMessages((prev: ChatMessage[]) => {
       const newMessages = [...prev, userMessage];
       
       // 익명 사용자인 경우 로컬 스토리지에 저장
@@ -445,6 +447,7 @@ const App: React.FC = () => {
       id: `loading-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       text: "준비",
       sender: MessageSender.MODEL,
+      timestamp: new Date().toISOString(),
       isLoading: true
     };
     setMessages(prev => {
