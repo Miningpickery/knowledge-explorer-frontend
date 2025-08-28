@@ -2,10 +2,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { MessageSender, createGroundedResponse, createGroundingSource } = require('../types');
 const { generatePrompt, validatePromptStructure } = require('../prompts/chatPrompt');
 
-// 기존 프론트엔드와 동일한 API 키 설정
-const API_KEY = process.env.GEMINI_API_KEY || 'temp_key_for_testing';
-if (!API_KEY || API_KEY === 'temp_key_for_testing') {
-  console.warn("⚠️ Using temporary API key for testing. Set GEMINI_API_KEY for production use.");
+// Gemini API 키 설정 및 검증
+const API_KEY = process.env.GEMINI_API_KEY;
+if (!API_KEY || API_KEY === 'your_gemini_api_key_here' || API_KEY === 'placeholder_gemini_api_key') {
+  if (process.env.NODE_ENV === 'production') {
+    console.error("❌ GEMINI_API_KEY가 설정되지 않았습니다. 프로덕션에서는 필수입니다.");
+    throw new Error('GEMINI_API_KEY is required in production');
+  } else {
+    console.warn("⚠️ GEMINI_API_KEY가 설정되지 않았습니다. API 호출이 제한될 수 있습니다.");
+    console.warn("📝 .env 파일에 실제 Gemini API 키를 설정해주세요.");
+  }
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY);

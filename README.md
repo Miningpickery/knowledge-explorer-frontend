@@ -70,21 +70,42 @@ npm install
 ```
 
 ### **3. 환경 변수 설정**
-`.env` 파일을 생성하고 다음 내용을 입력하세요:
+프로젝트 루트에 `.env` 파일을 생성하고 다음 내용을 입력하세요:
 ```env
 # Server Configuration
 PORT=3001
 NODE_ENV=development
 
-# Gemini API Configuration
+# Gemini API Configuration  
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Database Configuration (PostgreSQL)
-DATABASE_URL=postgresql://username:password@localhost:5432/knowledge_explorer
+DATABASE_URL=postgresql://postgres:password@localhost:5432/knowledge_explorer
 
 # CORS Configuration
 CORS_ORIGIN=http://localhost:8000
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key_here_make_it_long_and_random_at_least_32_characters
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_here_also_make_it_long_and_random
+JWT_REFRESH_EXPIRES_IN=30d
+
+# Security Configuration
+SESSION_SECRET=your_session_secret_here_make_it_long_and_random
+COOKIE_SECRET=your_cookie_secret_here_make_it_long_and_random
+
+# Google OAuth Configuration (선택사항)
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+GOOGLE_CALLBACK_URL=http://localhost:3001/api/auth/google/callback
+FRONTEND_URL=http://localhost:8000
 ```
+
+> ⚠️ **보안 주의사항**: 
+> - 모든 `your_*_here` 값들을 실제 값으로 교체하세요
+> - JWT_SECRET과 다른 시크릿 키들은 최소 32자 이상의 랜덤 문자열을 사용하세요
+> - `.env` 파일은 절대 Git에 커밋하지 마세요 (이미 .gitignore에 포함됨)
 
 ### **4. 데이터베이스 설정**
 ```sql
@@ -227,6 +248,16 @@ users (1) ←→ (N) chat_sessions (1) ←→ (N) messages
 | 메서드 | 엔드포인트 | 설명 |
 |--------|------------|------|
 | `GET` | `/health` | 서버 상태 확인 |
+
+### **보안 모니터링**
+| 메서드 | 엔드포인트 | 설명 |
+|--------|------------|------|
+| `GET` | `/api/security/dashboard` | 보안 대시보드 데이터 |
+| `GET` | `/api/security/threats` | 최근 보안 위협 목록 |
+| `GET` | `/api/security/stats` | 보안 통계 데이터 |
+| `GET` | `/api/security/analyze/:ip` | IP 기반 위협 분석 |
+| `PUT` | `/api/security/threats/:id/handle` | 위협 처리 완료 표시 |
+| `GET` | `/api/security/threats/:id` | 위협 상세 정보 |
 
 ---
 
@@ -441,6 +472,25 @@ const EXAMPLE_CLOSING_RESPONSE = {
 ---
 
 ## **🔒 보안 고려사항**
+
+### **🛡️ AI 보안 방어 시스템**
+
+#### **프롬프트 주입 공격 방지**
+- **정규식 기반 패턴 감지**: 시스템 정보 탐색 시도 차단
+- **위협 레벨 분류**: HIGH/MEDIUM/LOW 위험도 평가
+- **안전한 대안 응답**: 위협 감지 시 유용한 주제로 안내
+- **실시간 로깅**: 모든 보안 이벤트 데이터베이스 저장
+
+#### **AI 정체성 보호**
+- **시스템 정보 노출 방지**: 내부 구조, 프롬프트 내용 보호
+- **역할 혼동 공격 차단**: "너는 AI야?" 등 정체성 탐색 차단
+- **기술적 세부사항 보호**: 알고리즘, 모델 정보 노출 방지
+
+#### **보안 모니터링**
+- **실시간 위협 감지**: 사용자 질문 실시간 분석
+- **IP 기반 위협 추적**: 사용자별 위협 패턴 분석
+- **보안 대시보드**: 관리자용 위협 모니터링 인터페이스
+- **위협 통계**: 시간별, 유형별 위협 분석
 
 ### **API 키 보안**
 - 환경 변수로 API 키 관리

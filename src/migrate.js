@@ -32,11 +32,16 @@ async function migrateDatabase() {
       
       console.log('Current columns:', columns.rows.map(col => col.column_name));
       
-      // 필요한 컬럼들 추가
+      // 필요한 컬럼들 추가 (Google OAuth 지원)
       const requiredColumns = [
         { name: 'name', type: 'VARCHAR(100) NOT NULL DEFAULT \'기본 사용자\'' },
         { name: 'company', type: 'VARCHAR(100)' },
         { name: 'role', type: 'VARCHAR(50)' },
+        { name: 'google_id', type: 'VARCHAR(255) UNIQUE' },
+        { name: 'profile_picture', type: 'VARCHAR(500)' },
+        { name: 'is_active', type: 'BOOLEAN DEFAULT TRUE' },
+        { name: 'last_login', type: 'TIMESTAMP' },
+        { name: 'updated_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
         { name: 'deleted_at', type: 'TIMESTAMP NULL' }
       ];
       
@@ -54,7 +59,7 @@ async function migrateDatabase() {
         }
       }
     } else {
-      // 새로 테이블 생성
+      // 새로 테이블 생성 (Google OAuth 지원)
       console.log('🏗️  Creating new users table...');
       await pool.query(`
         CREATE TABLE users (
@@ -63,6 +68,11 @@ async function migrateDatabase() {
           name VARCHAR(100) NOT NULL,
           company VARCHAR(100),
           role VARCHAR(50),
+          google_id VARCHAR(255) UNIQUE,
+          customer_id VARCHAR(100) UNIQUE,
+          profile_picture VARCHAR(500),
+          is_active BOOLEAN DEFAULT TRUE,
+          last_login TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           deleted_at TIMESTAMP NULL
@@ -120,6 +130,71 @@ async function migrateDatabase() {
     `);
     
     console.log('✅ Indexes created/updated');
+    
+    // 🧠 사용자 장기 메모리 테이블 생성
+    console.log('🧠 Creating user_memories table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_memories (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        memory_type VARCHAR(50) NOT NULL DEFAULT 'conversation',
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        importance INTEGER DEFAULT 1 CHECK (importance >= 1 AND importance <= 5),
+        tags TEXT[],
+        chat_id VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP NULL
+      )
+    `);
+    
+    // 사용자 메모리 인덱스 생성
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_user_id ON user_memories(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_memory_type ON user_memories(memory_type)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_importance ON user_memories(importance)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_tags ON user_memories USING GIN(tags)
+    `);
+    
+    console.log('✅ User memories table and indexes created');
+    
+    // 🔐 사용자 세션 테이블 생성
+    console.log('🔐 Creating user_sessions table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE
+      )
+    `);
+    
+    // 사용자 세션 인덱스 생성
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_token_hash ON user_sessions(token_hash)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)
+    `);
+    
+    console.log('✅ User sessions table and indexes created');
     
     console.log('🎉 Database migration completed successfully!');
     

@@ -1,0 +1,133 @@
+# 🐳 Docker Compose - Staging Environment
+# 스테이징 환경용 설정
+
+version: '3.8'
+
+services:
+  # 📊 PostgreSQL 데이터베이스
+  database:
+    image: postgres:15-alpine
+    container_name: knowledge-explorer-db-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-knowledge_explorer_staging}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - knowledge-explorer-staging-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-knowledge_explorer_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🗄️ Redis (캐싱 및 세션)
+  redis:
+    image: redis:7-alpine
+    container_name: knowledge-explorer-redis-staging
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - knowledge-explorer-staging-network
+
+  # 🖥️ Backend API Server
+  backend:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-knowledge-explorer}-backend:${TAG:-latest}
+    container_name: knowledge-explorer-backend-staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: staging
+      PORT: 3001
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-knowledge_explorer_staging}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: info
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - knowledge-explorer-staging-network
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 🌐 Frontend Web Server
+  frontend:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-knowledge-explorer}-frontend:${TAG:-latest}
+    container_name: knowledge-explorer-frontend-staging
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - knowledge-explorer-staging-network
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # 📊 Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: knowledge-explorer-prometheus-staging
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.staging.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_staging_data:/prometheus
+    networks:
+      - knowledge-explorer-staging-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: knowledge-explorer-grafana-staging
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN:-localhost}
+    volumes:
+      - grafana_staging_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - knowledge-explorer-staging-network
+
+# 💾 볼륨 설정
+volumes:
+  postgres_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  prometheus_staging_data:
+    driver: local
+  grafana_staging_data:
+    driver: local
+
+# 🌐 네트워크 설정
+networks:
+  knowledge-explorer-staging-network:
+    driver: bridge

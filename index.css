@@ -2,215 +2,280 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-body { 
-  margin: 0; 
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  background-color: #F5F1E9; /* Beige background */
-  overflow: hidden; /* Prevent body scroll */
+/* 🎨 CSS 변수 정의 (디자인 가이드 준수 - 다크모드 지원) */
+:root {
+  /* 배경 및 전경색 */
+  --background: 0 0% 100%;           /* 순백 */
+  --foreground: 222 84% 5%;          /* 다크 네이비 */
+  
+  /* 카드 및 컨테이너 */
+  --card: 0 0% 100%;                 /* 순백 */
+  --card-foreground: 222 84% 5%;
+  
+  /* 주요 브랜드 색상 (모던 블루) */
+  --primary: 221 83% 53%;            /* #3b82f6 */
+  --primary-foreground: 0 0% 98%;    /* 거의 흰색 */
+  
+  /* 보조 색상 */
+  --secondary: 210 40% 98%;          /* 매우 연한 블루그레이 */
+  --secondary-foreground: 222 84% 5%;
+  
+  /* 음소거/비활성 */
+  --muted: 210 40% 96%;              /* 연한 블루그레이 */
+  --muted-foreground: 215 16% 47%;   /* 중간 그레이 */
+  
+  /* 액센트 (에메랄드 그린) */
+  --accent: 160 84% 39%;             /* #10b981 */
+  --accent-foreground: 0 0% 98%;
+  
+  /* 위험/삭제 */
+  --destructive: 0 84% 60%;          /* 레드 */
+  --destructive-foreground: 0 0% 98%;
+  
+  /* 테두리 및 입력 */
+  --border: 214 32% 91%;             /* 연한 그레이 */
+  --input: 214 32% 91%;
+  --ring: 221 83% 53%;               /* 포커스 링 */
+  
+  /* 기본 반경 */
+  --radius: 0.5rem;
 }
 
-.chat-container::-webkit-scrollbar { width: 6px; }
-.chat-container::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
-.chat-container::-webkit-scrollbar-track { background-color: transparent; }
+/* 🌙 다크모드 색상 시스템 */
+.dark {
+  /* 배경 및 전경색 */
+  --background: 222 84% 5%;          /* 다크 네이비 */
+  --foreground: 210 40% 98%;         /* 거의 흰색 */
+  
+  /* 카드 및 컨테이너 */
+  --card: 222 84% 5%;                /* 다크 네이비 */
+  --card-foreground: 210 40% 98%;
+  
+  /* 주요 브랜드 색상 (밝은 블루) */
+  --primary: 217 91% 60%;            /* #60a5fa */
+  --primary-foreground: 222 84% 5%;  /* 다크 */
+  
+  /* 보조 색상 */
+  --secondary: 217 33% 18%;          /* 다크 블루그레이 */
+  --secondary-foreground: 210 40% 98%;
+  
+  /* 음소거/비활성 */
+  --muted: 217 33% 18%;              /* 다크 블루그레이 */
+  --muted-foreground: 215 20% 65%;   /* 밝은 그레이 */
+  
+  /* 액센트 (에메랄드 그린) */
+  --accent: 160 84% 39%;             /* #10b981 */
+  --accent-foreground: 0 0% 98%;
+  
+  /* 위험/삭제 */
+  --destructive: 0 63% 31%;          /* 다크 레드 */
+  --destructive-foreground: 210 40% 98%;
+  
+  /* 테두리 및 입력 */
+  --border: 217 33% 18%;             /* 다크 그레이 */
+  --input: 217 33% 18%;
+  --ring: 224 76% 94%;               /* 밝은 포커스 링 */
+}
 
-/* Custom bubble styles */
+/* 🌟 기본 스타일 (디자인 가이드 준수) */
+* {
+  border-color: hsl(var(--border));
+}
+
+*::before,
+*::after {
+  border-color: hsl(var(--border));
+}
+
+body { 
+  margin: 0;
+  padding: 0;
+  /* 폰트 시스템 (최대 2개 폰트 패밀리) */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  
+  /* 텍스트 최적화 */
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  /* 모바일 최적화 */
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  
+  /* 기본 텍스트 크기 (모바일 우선) */
+  font-size: 14px;
+  line-height: 1.6;
+  
+  /* 스크롤 동작 개선 */
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* 📱 모바일 우선 반응형 텍스트 */
+@media (min-width: 640px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+/* 스크롤바 스타일 */
+.chat-container::-webkit-scrollbar { 
+  width: 6px; 
+}
+
+.chat-container::-webkit-scrollbar-thumb { 
+  background-color: hsl(var(--muted-foreground) / 0.3); 
+  border-radius: 3px; 
+}
+
+.chat-container::-webkit-scrollbar-track { 
+  background-color: transparent; 
+}
+
+/* 메시지 버블 스타일 (디자인 가이드 준수) */
 .bubble {
   position: relative;
-  padding: 10px 15px;
-  border-radius: 18px;
+  padding: 12px 16px;
+  border-radius: 12px;
   max-width: 85%;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
 }
 
 .bubble::after {
   content: '';
   position: absolute;
-  top: 10px;
+  top: 12px;
   width: 0;
   height: 0;
-  border: 10px solid transparent;
+  border: 8px solid transparent;
 }
 
 .bubble-user {
-  background-color: #FFDE03;
-  color: #333;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   border-bottom-right-radius: 4px;
 }
 
 .bubble-user::after {
-  right: -12px;
-  border-left-color: #FFDE03;
+  right: -8px;
+  border-left-color: hsl(var(--primary));
   border-right: 0;
   border-top: 0;
   margin-top: -2px;
 }
 
 .bubble-model {
-  background-color: #FFFFFF;
-  color: #333;
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
   border-bottom-left-radius: 4px;
 }
 
 .bubble-model::after {
-  left: -12px;
-  border-right-color: #FFFFFF;
+  left: -8px;
+  border-right-color: hsl(var(--card));
   border-left: 0;
   border-top: 0;
   margin-top: -2px;
 }
 
-/* 마크다운 렌더링 기본 스타일 - 채팅 글씨 크기 고정 */
+/* 마크다운 렌더링 스타일 */
 .prose {
   line-height: 1.6;
-  color: #374151;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  color: hsl(var(--foreground));
+  font-size: 14px !important;
+  font-family: 'Inter', sans-serif;
 }
 
 .prose p {
   margin-bottom: 1em;
   line-height: 1.6;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  font-size: 14px !important;
 }
 
 .prose ul, .prose ol {
   margin-left: 1.5em;
   margin-bottom: 1em;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  font-size: 14px !important;
 }
 
 .prose li {
   margin-bottom: 0.5em;
   line-height: 1.5;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  font-size: 14px !important;
 }
 
 .prose strong {
   font-weight: 600;
-  color: #111827;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  color: hsl(var(--foreground));
+  font-size: 14px !important;
 }
 
 .prose em {
   font-style: italic;
-  font-size: 14px !important; /* 채팅 글씨 크기 고정 */
+  font-size: 14px !important;
 }
 
 .prose code {
-  background-color: #f3f4f6;
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
-  font-size: 13px !important; /* 코드는 약간 작게 */
+  font-size: 13px !important;
+  font-family: 'Inter', monospace;
 }
 
-/* 모든 prose 요소에서 글씨 크기 고정 */
-.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
-  font-size: 14px !important;
-  font-weight: 600;
-  margin-bottom: 0.5em;
+.prose a { 
+  color: hsl(var(--primary)); 
+  text-decoration: none;
+}
+
+.prose a:hover { 
+  color: hsl(var(--primary) / 0.8); 
+  text-decoration: underline;
 }
 
 .prose blockquote {
   font-size: 14px !important;
-  border-left: 4px solid #e5e7eb;
+  border-left: 4px solid hsl(var(--border));
   padding-left: 1em;
   margin-left: 0;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .prose pre {
   font-size: 13px !important;
-  background-color: #f3f4f6;
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
   padding: 0.75em;
   border-radius: 0.5em;
   overflow-x: auto;
+  border: 1px solid hsl(var(--border));
 }
 
 .prose table {
   font-size: 14px !important;
+  border-collapse: collapse;
+  width: 100%;
 }
 
 .prose th, .prose td {
   font-size: 14px !important;
   padding: 0.5em;
-  border: 1px solid #e5e7eb;
+  border: 1px solid hsl(var(--border));
 }
 
-/* 스트리밍 애니메이션 */
-@keyframes typing {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+.prose th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
 }
 
-.typing-cursor {
-  animation: typing 1s infinite;
-}
-
-/* 메시지 버블 기본 스타일 */
-.message-bubble {
-  max-width: 80%;
-  word-wrap: break-word;
-}
-
-/* 스트리밍 텍스트 애니메이션 */
-.streaming-text {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-/* 메시지 버블 내 텍스트 자간 조정 */
-.message-bubble {
-  letter-spacing: -0.01em;
-}
-
-.message-bubble p, .message-bubble li {
-  letter-spacing: -0.01em;
-}
-
-/* 전체적인 텍스트 자간 조정 */
-.prose {
-  letter-spacing: -0.01em;
-}
-
-.prose * {
-  letter-spacing: -0.01em;
-}
-
-/* 인라인 코드 스타일 */
-.prose code {
-  background-color: #f3f4f6;
-  padding: 0.125em 0.25em;
-  border-radius: 0.25em;
-  font-size: 0.875em;
-}
-.prose code { color: #1e293b; }
-.prose a { color: #D55C2D; }
-.prose a:hover { color: #b54a21; }
-.prose blockquote { border-left-color: #e5e7eb; }
-.prose pre {
-  background-color: #f3f4f6;
-  color: #1f2937;
-}
-
-/* Chat History Sidebar Scrollbar */
-.sidebar-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background-color: #a0aec0;
-  border-radius: 2px;
-}
-.sidebar-scroll::-webkit-scrollbar-track {
-  background-color: transparent;
-}
-
-/* 메시지 애니메이션 */
+/* 애니메이션 */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -226,67 +291,104 @@ body {
   animation: fadeInUp 0.3s ease-out;
 }
 
-/* 리스트 스타일 개선 */
-.prose ul, .prose ol {
-  margin-left: 1.5em;
-  margin-bottom: 0.75em;
+.typing-cursor {
+  animation: typing 1s infinite;
 }
 
-.prose ul li, .prose ol li {
-  margin-bottom: 0.4em;
-  letter-spacing: -0.01em;
+/* 사이드바 스크롤바 */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
 }
 
-/* 마크다운 리스트 항목 강제 줄바꿈 */
-.prose ul li::before {
-  content: "• ";
-  color: #6b7280;
-  font-weight: bold;
-  margin-right: 0.4em;
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 2px;
 }
 
-/* 텍스트 내 * 기호 처리 */
-.prose p:has(*), .prose li:has(*) {
-  white-space: pre-wrap;
-  letter-spacing: -0.01em;
+.sidebar-scroll::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 
-/* 리스트 항목 강제 분리 */
-.prose ul li, .prose ol li {
-  display: block;
-  margin-bottom: 0.3em;
-  padding-left: 0.4em;
-  letter-spacing: -0.01em;
+/* 🔧 유틸리티 클래스 (디자인 가이드 준수) */
+.text-balance {
+  text-wrap: balance;
 }
 
-/* * 기호로 시작하는 리스트 항목 강제 처리 */
-.prose p:contains("*"), .prose li:contains("*") {
-  white-space: pre-wrap !important;
-  letter-spacing: -0.01em;
+.text-pretty {
+  text-wrap: pretty;
 }
 
-/* 리스트 항목 내부 줄바꿈 강제 */
-.prose ul li, .prose ol li {
-  white-space: pre-wrap !important;
-  line-height: 1.3;
-  margin-bottom: 0.3em;
-  letter-spacing: -0.01em;
+/* 터치 최적화 */
+.touch-manipulation {
+  touch-action: manipulation;
 }
 
-/* * 기호가 포함된 텍스트 강제 줄바꿈 */
-.prose p, .prose li {
-  white-space: pre-wrap !important;
-  letter-spacing: -0.01em;
+/* 스크린 리더 전용 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* 리스트 컨테이너 스타일 강화 */
-.prose ul, .prose ol {
-  margin-left: 1.5em;
-  margin-bottom: 0.75em;
-  padding-left: 0;
+/* 포커스 표시 개선 */
+.focus-visible\:ring-ring:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
-/* 리스트 항목 간격 강화 */
-.prose ul li + li, .prose ol li + li {
-  margin-top: 0.2em;
+/* 포커스 스타일 */
+.focus-visible:outline-none {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* 📱 모바일 우선 반응형 유틸리티 */
+@media (max-width: 640px) {
+  .bubble {
+    max-width: 90%;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  
+  .prose {
+    font-size: 13px !important;
+  }
+  
+  .prose p, .prose li, .prose strong, .prose em {
+    font-size: 13px !important;
+  }
+  
+  /* 모바일에서 터치 타겟 최소 크기 확보 */
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* 🖥️ 데스크톱 최적화 */
+@media (min-width: 1024px) {
+  .chat-container {
+    scrollbar-width: thin;
+  }
+  
+  .sidebar-scroll {
+    scrollbar-width: thin;
+  }
+}
+
+/* 🌙 다크모드 특화 스타일 */
+@media (prefers-color-scheme: dark) {
+  .dark .chat-container::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
+  
+  .dark .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
 }

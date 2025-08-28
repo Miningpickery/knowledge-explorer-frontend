@@ -1,0 +1,54 @@
+# 🐳 Backend Dockerfile
+# 상용화 수준의 Node.js 백엔드 컨테이너
+
+# 멀티 스테이지 빌드를 위한 베이스 이미지
+FROM node:18-alpine AS base
+WORKDIR /app
+
+# 보안을 위한 non-root 사용자 생성
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodeuser -u 1001
+
+# 패키지 설치 스테이지
+FROM base AS deps
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# 개발 의존성 포함 빌드 스테이지
+FROM base AS builder
+COPY package*.json ./
+RUN npm ci
+COPY . .
+
+# 프로덕션 런타임 스테이지
+FROM base AS runtime
+
+# 보안 업데이트
+RUN apk update && apk upgrade && apk add --no-cache dumb-init
+
+# 애플리케이션 디렉토리 설정
+WORKDIR /app
+
+# 프로덕션 의존성 복사
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/package*.json ./
+
+# 파일 소유권을 nodeuser로 변경
+RUN chown -R nodeuser:nodejs /app
+USER nodeuser
+
+# 환경 변수 설정
+ENV NODE_ENV=production
+ENV PORT=3001
+
+# 헬스체크 추가
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# 포트 노출
+EXPOSE 3001
+
+# dumb-init을 사용하여 신호 처리 개선
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "src/index.js"]

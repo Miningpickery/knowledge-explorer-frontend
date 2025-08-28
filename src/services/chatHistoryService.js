@@ -87,6 +87,24 @@ const getUserByEmail = async (email) => {
   }
 };
 
+// 채팅 ID로 메시지 목록 조회
+const getMessagesByChatId = async (chatId) => {
+  try {
+    const query = `
+      SELECT id, text, sender, context, timestamp
+      FROM messages
+      WHERE chat_id = $1
+      ORDER BY timestamp ASC
+    `;
+    
+    const result = await pool.query(query, [chatId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Failed to get messages by chat ID:', error);
+    throw error;
+  }
+};
+
 // 사용자 정보 업데이트
 const updateUser = async (userId, updates) => {
   try {
@@ -367,7 +385,7 @@ const getConversationContext = async (chatId) => {
 // 데이터베이스 초기화 (테이블 생성)
 const initializeDatabase = async () => {
   try {
-    // 사용자/고객 테이블 생성
+    // 사용자/고객 테이블 생성 (OAuth 지원)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -375,6 +393,11 @@ const initializeDatabase = async () => {
         name VARCHAR(100) NOT NULL,
         company VARCHAR(100),
         role VARCHAR(50),
+        google_id VARCHAR(255) UNIQUE,
+        customer_id VARCHAR(100) UNIQUE,
+        profile_picture VARCHAR(500),
+        is_active BOOLEAN DEFAULT TRUE,
+        last_login TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         deleted_at TIMESTAMP NULL
@@ -409,6 +432,52 @@ const initializeDatabase = async () => {
       )
     `);
     
+    // 보안 위협 로깅 테이블 생성
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS security_threats (
+        id SERIAL PRIMARY KEY,
+        threat_type VARCHAR(50) NOT NULL,
+        threat_level VARCHAR(20) NOT NULL,
+        user_question TEXT NOT NULL,
+        detected_patterns TEXT[],
+        user_ip VARCHAR(45),
+        user_agent TEXT,
+        chat_id VARCHAR(100),
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        handled BOOLEAN DEFAULT FALSE,
+        response_type VARCHAR(50) DEFAULT 'security_response'
+      )
+    `);
+    
+    // 장기메모리 테이블 생성
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_memories (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        memory_type VARCHAR(50) NOT NULL DEFAULT 'conversation',
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        importance INTEGER DEFAULT 1 CHECK (importance >= 1 AND importance <= 5),
+        tags TEXT[],
+        chat_id VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP NULL
+      )
+    `);
+    
+    // 사용자 세션 토큰 테이블 생성
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE
+      )
+    `);
+    
     // 인덱스 생성
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)
@@ -426,7 +495,45 @@ const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)
     `);
     
-    console.log('✅ Database initialized successfully with user management');
+    // 보안 테이블 인덱스
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_security_threats_timestamp 
+      ON security_threats(timestamp DESC)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_security_threats_type 
+      ON security_threats(threat_type, threat_level)
+    `);
+    
+    // 장기메모리 테이블 인덱스
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_user_id 
+      ON user_memories(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_importance 
+      ON user_memories(importance DESC)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_memories_created_at 
+      ON user_memories(created_at DESC)
+    `);
+    
+    // 사용자 세션 테이블 인덱스
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_token_hash 
+      ON user_sessions(token_hash)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at 
+      ON user_sessions(expires_at)
+    `);
+    
+    console.log('✅ Database initialized successfully with user management and security monitoring');
   } catch (error) {
     console.error('❌ Failed to initialize database:', error);
     throw error;
@@ -442,6 +549,7 @@ module.exports = {
   saveMessage,
   saveContext,
   getConversationContext,
+  getMessagesByChatId,
   initializeDatabase,
   getTitleFromMessages,
   createUser,

@@ -1,0 +1,272 @@
+# 🐳 Docker Compose - Production Environment
+# 프로덕션 환경용 고가용성 설정
+
+version: '3.8'
+
+services:
+  # 📊 PostgreSQL 데이터베이스
+  database:
+    image: postgres:15-alpine
+    container_name: knowledge-explorer-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-knowledge_explorer_prod}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - knowledge-explorer-prod-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-knowledge_explorer_prod}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    # 프로덕션 보안 설정
+    security_opt:
+      - no-new-privileges:true
+    user: postgres
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+
+  # 🗄️ Redis (캐싱 및 세션)
+  redis:
+    image: redis:7-alpine
+    container_name: knowledge-explorer-redis-prod
+    restart: always
+    command: |
+      redis-server 
+      --appendonly yes 
+      --requirepass ${REDIS_PASSWORD}
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - knowledge-explorer-prod-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  # 🖥️ Backend API Server (다중 인스턴스)
+  backend:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-knowledge-explorer}-backend:${TAG:-latest}
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-knowledge_explorer_prod}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: warn
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX_REQUESTS: 100
+    volumes:
+      - ./uploads:/app/uploads:ro
+      - ./logs:/app/logs
+    networks:
+      - knowledge-explorer-prod-network
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    # 리소스 제한
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # 🌐 Frontend Web Server
+  frontend:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-knowledge-explorer}-frontend:${TAG:-latest}
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      - knowledge-explorer-prod-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    # 리소스 제한
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # 🔄 Nginx Load Balancer
+  nginx-lb:
+    image: nginx:1.25-alpine
+    container_name: knowledge-explorer-lb-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - knowledge-explorer-prod-network
+    depends_on:
+      - frontend
+      - backend
+    security_opt:
+      - no-new-privileges:true
+
+  # 📊 모니터링 스택
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: knowledge-explorer-prometheus-prod
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_prod_data:/prometheus
+    networks:
+      - knowledge-explorer-prod-network
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: knowledge-explorer-grafana-prod
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_SERVER_DOMAIN: ${GRAFANA_DOMAIN}
+      GF_SERVER_ROOT_URL: https://${GRAFANA_DOMAIN}
+      GF_SMTP_ENABLED: true
+      GF_SMTP_HOST: ${SMTP_HOST}
+      GF_SMTP_USER: ${SMTP_USER}
+      GF_SMTP_PASSWORD: ${SMTP_PASSWORD}
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
+    volumes:
+      - grafana_prod_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
+    networks:
+      - knowledge-explorer-prod-network
+    security_opt:
+      - no-new-privileges:true
+
+  # 📈 로그 수집기
+  fluentd:
+    image: fluent/fluentd:v1.16-debian-1
+    container_name: knowledge-explorer-fluentd-prod
+    restart: always
+    volumes:
+      - ./logs:/fluentd/log
+      - ./monitoring/fluentd:/fluentd/etc
+    networks:
+      - knowledge-explorer-prod-network
+    security_opt:
+      - no-new-privileges:true
+
+  # 🔐 백업 서비스
+  backup:
+    image: postgres:15-alpine
+    container_name: knowledge-explorer-backup-prod
+    restart: "no"
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    networks:
+      - knowledge-explorer-prod-network
+    depends_on:
+      - database
+    # cron으로 실행되도록 설정 (외부에서 관리)
+    profiles:
+      - backup
+
+# 💾 볼륨 설정
+volumes:
+  postgres_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/postgres
+  redis_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/redis
+  prometheus_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/prometheus
+  grafana_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/grafana
+
+# 🌐 네트워크 설정
+networks:
+  knowledge-explorer-prod-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16

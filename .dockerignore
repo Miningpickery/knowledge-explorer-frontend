@@ -1,0 +1,138 @@
+# 🐳 Docker Ignore File
+# 상용화 수준의 빌드 최적화
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 환경 파일
+.env*
+!.env.example
+
+# 로그 파일
+logs/
+*.log
+
+# 런타임 데이터
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# 커버리지 디렉토리
+coverage/
+.coverage
+.nyc_output
+
+# 테스트 결과
+test-results/
+.vitest/
+
+# 빌드 출력
+dist/
+build/
+.next/
+.nuxt/
+.vuepress/dist/
+
+# IDE 및 에디터
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# 문서
+README*.md
+CHANGELOG.md
+LICENSE
+*.md
+docs/
+
+# 백업 파일
+*.bak
+*.backup
+*.tmp
+
+# 업로드 파일 (프로덕션에서는 별도 스토리지 사용)
+uploads/
+temp/
+tmp/
+
+# 모니터링 설정
+monitoring/
+prometheus/
+grafana/
+
+# 스크립트
+scripts/
+*.sh
+
+# SSL 인증서
+ssl/
+*.pem
+*.key
+*.crt
+
+# 데이터베이스 파일
+*.sqlite
+*.sqlite3
+*.db
+
+# 캐시
+.cache/
+.parcel-cache/
+.sass-cache/
+
+# ESLint 캐시
+.eslintcache
+
+# Prettier 무시
+.prettierignore
+
+# Stylelint 캐시
+.stylelintcache
+
+# 기타 설정 파일
+.editorconfig
+.prettierrc*
+.eslintrc*
+stylelint.config.*
+tailwind.config.*
+postcss.config.*
+babel.config.*
+jest.config.*
+vitest.config.*
+
+# 패키지 매니저 락 파일 (선택적으로 포함)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
