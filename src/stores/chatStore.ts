@@ -4,12 +4,39 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { 
-  ChatSession, 
-  ChatMessage, 
-  StreamingMessageData,
-  MessageSender 
-} from '../types';
+
+// 타입을 직접 정의
+enum MessageSender {
+  USER = 'user',
+  MODEL = 'model',
+}
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: MessageSender;
+  timestamp: string;
+  sources?: string[];
+  followUpQuestions?: string[];
+  context?: string;
+  isLoading?: boolean;
+  isStreaming?: boolean;
+  error?: string;
+}
+
+interface ChatSession {
+  id: string;
+  user_id?: number;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  messages?: ChatMessage[];
+  context?: string;
+  tags?: string[];
+  messageCount?: number;
+}
 
 interface ChatState {
   // 📋 Chat Data

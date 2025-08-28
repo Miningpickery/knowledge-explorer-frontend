@@ -47,11 +47,13 @@ class ErrorMonitoring {
    * Express 미들웨어 반환
    */
   static getRequestHandler() {
-    return Sentry.Handlers.requestHandler();
+    console.log('⚠️ Sentry getRequestHandler disabled');
+    return (req, res, next) => next();
   }
   
   static getErrorHandler() {
-    return Sentry.Handlers.errorHandler();
+    console.log('⚠️ Sentry getErrorHandler disabled');
+    return (err, req, res, next) => next(err);
   }
 }
 
@@ -324,6 +326,5 @@ module.exports = {
   Logger,
   PerformanceMetrics,
   logger,
-  performanceMetrics,
-  Sentry
+  performanceMetrics
 };
