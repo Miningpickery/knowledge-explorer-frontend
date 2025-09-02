@@ -141,6 +141,51 @@ const chatMessageSchema = {
   }
 };
 
+// 테이블별 Key 검증 함수
+const validateTableKey = (tableName, keyValue) => {
+  const validKeys = {
+    'users': /^\d+$/,                    // user_id는 숫자
+    'chat_sessions': /^[a-zA-Z0-9_-]+$/, // chat_id는 문자열 (알파벳, 숫자, 언더스코어, 하이픈) - temp_ 포함
+    'messages': /^\d+$/,                 // message_id는 숫자
+    'user_memories': /^\d+$/,            // memory_id는 숫자
+    'user_sessions': /^\d+$/,            // session_id는 숫자
+    'admin_users': /^\d+$/               // admin_id는 숫자
+  };
+  
+  return validKeys[tableName]?.test(keyValue) || false;
+};
+
+// Key 검증 미들웨어
+const validateKey = (paramName, tableName) => {
+  return (req, res, next) => {
+    const keyValue = req.params[paramName];
+    
+    if (!keyValue) {
+      return res.status(400).json({
+        error: {
+          code: 'MISSING_KEY',
+          message: `필수 매개변수가 누락되었습니다: ${paramName}`,
+          details: `Required parameter missing: ${paramName}`
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    if (!validateTableKey(tableName, keyValue)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_KEY',
+          message: `잘못된 ${paramName} 형식입니다.`,
+          details: `Invalid ${paramName} format for table: ${tableName}`
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    next();
+  };
+};
+
 // 사용자 프로필 업데이트 스키마
 const profileUpdateSchema = {
   name: {
@@ -163,6 +208,8 @@ const profileUpdateSchema = {
 module.exports = {
   validateEnvironment,
   validateRequestBody,
+  validateKey,
+  validateTableKey,
   chatMessageSchema,
   profileUpdateSchema
 };

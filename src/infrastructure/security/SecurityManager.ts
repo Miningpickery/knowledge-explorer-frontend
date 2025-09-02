@@ -238,7 +238,7 @@ export class SecurityManager {
       if (timeToExpiry < this.config.tokenRefreshThreshold * 60 * 1000) {
         Logger.warn('토큰 만료 임박', {
           expiresAt: new Date(expiresAt).toISOString(),
-          timeToExpiry: Math.floor(timeToExpiry / 1000 / 60) + '분'
+          timeToExpiry: `${Math.floor(timeToExpiry / 1000 / 60)  }분`
         });
         
         // 자동 갱신 시도
@@ -458,7 +458,7 @@ export class SecurityManager {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
-      "connect-src 'self' " + this.config.allowedOrigins.join(' '),
+      `connect-src 'self' ${  this.config.allowedOrigins.join(' ')}`,
       "font-src 'self' data:",
       "object-src 'none'",
       "media-src 'self'",

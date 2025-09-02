@@ -117,7 +117,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
         onBlur={handleBlur}
         placeholder={placeholder}
         className={getInputClassName()}
-        disabled={disabled}
+        disabled={disabled ? "disabled" : undefined}
         rows={rows}
         maxLength={maxLength}
         spellCheck={false}
@@ -266,7 +266,7 @@ export const SecureFileUpload: React.FC<SecureFileUploadProps> = ({
           onChange={handleFileSelect}
           accept={accept}
           className="hidden"
-          disabled={disabled}
+          disabled={disabled ? "disabled" : undefined}
         />
         
         <div className="space-y-2">

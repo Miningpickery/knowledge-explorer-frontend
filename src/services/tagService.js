@@ -24,7 +24,7 @@ const createTag = async (name, color = '#3B82F6') => {
 // 모든 태그 조회
 const getAllTags = async () => {
   try {
-    const query = 'SELECT id, name, color FROM tags ORDER BY name';
+    const query = 'SELECT tag_id, name, color FROM tags ORDER BY name';
     const result = await pool.query(query);
     return result.rows;
   } catch (error) {
@@ -36,7 +36,7 @@ const getAllTags = async () => {
 // 태그 ID로 조회
 const getTagById = async (tagId) => {
   try {
-    const query = 'SELECT id, name, color FROM tags WHERE id = $1';
+    const query = 'SELECT tag_id, name, color FROM tags WHERE tag_id = $1';
     const result = await pool.query(query, [tagId]);
     return result.rows[0] || null;
   } catch (error) {
@@ -113,7 +113,7 @@ const getChatsByTag = async (tagId) => {
 // 태그 삭제
 const deleteTag = async (tagId) => {
   try {
-    const query = 'DELETE FROM tags WHERE id = $1';
+    const query = 'DELETE FROM tags WHERE tag_id = $1';
     await pool.query(query, [tagId]);
   } catch (error) {
     console.error("Failed to delete tag:", error);

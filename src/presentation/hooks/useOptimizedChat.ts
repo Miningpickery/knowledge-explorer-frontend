@@ -9,7 +9,7 @@ import { ChatMessage, ChatSession } from '../../business/types/chat.types';
 import { useChatStore, useChatActions } from '../../business/stores/chatStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ErrorHandler } from '../../infrastructure/errors/ErrorHandler';
-import { Logger } from '../../infrastructure/logger/Logger';
+// import { Logger } from '../../infrastructure/logger/Logger';
 
 interface UseOptimizedChatOptions {
   enableVirtualization?: boolean;
@@ -76,14 +76,14 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
   // 🎯 로컬 상태 관리
   // ============================================================================
   
-  const [isTyping, setIsTyping] = useState(false);
+  const [isTyping, setIsTyping] = useState<boolean>(false);
   const [lastSeen, setLastSeen] = useState<Record<string, number>>({});
   const [searchCache, setSearchCache] = useState<Map<string, ChatMessage[]>>(new Map());
   
   // Refs
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const metricsRef = useRef<MessageMetrics>({
     totalMessages: 0,
     averageResponseTime: 0,
@@ -143,14 +143,14 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
     
     setIsTyping(true);
     
-    // 즉시 사용자 메시지 표시 (낙관적 업데이트)
-    const optimisticMessage: ChatMessage = {
-      id: `temp-${Date.now()}`,
-      text: text.trim(),
-      sender: 'user',
-      timestamp: new Date().toISOString(),
-      status: 'sending'
-    };
+         // 즉시 사용자 메시지 표시 (낙관적 업데이트)
+     const optimisticMessage: ChatMessage = {
+       message_id: `temp-${Date.now()}`,
+       text: text.trim(),
+       sender: 'user',
+       timestamp: new Date().toISOString(),
+       status: 'sending'
+     };
     
     // 임시로 메시지 추가 (실제 구현에서는 store 액션 사용)
     await debouncedSendMessage(text);
@@ -227,7 +227,7 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
   const searchMessages = useCallback((query: string): ChatMessage[] => {
     if (!query.trim()) return [];
     
-    const cacheKey = `${activeChat?.id || 'all'}-${query.toLowerCase()}`;
+            const cacheKey = `${activeChat?.chat_id || 'all'}-${query.toLowerCase()}`;
     
     // 캐시 확인
     if (searchCache.has(cacheKey)) {
@@ -247,32 +247,32 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
     
     setSearchCache(prev => new Map(prev).set(cacheKey, results));
     
-    Logger.info('메시지 검색 완료', { 
+    console.log('메시지 검색 완료', { 
       query, 
       resultCount: results.length,
       cached: false 
     });
     
     return results;
-  }, [messages, activeChat?.id, searchCache]);
+  }, [messages, activeChat?.chat_id, searchCache]);
   
   // 채팅 내보내기
   const exportChat = useCallback(async (chatId: string): Promise<Blob> => {
     try {
-      const chat = chats.find(c => c.id === chatId);
+      const chat = chats.find(c => c.chat_id === chatId);
       if (!chat) throw new Error('채팅을 찾을 수 없습니다');
       
-      const chatMessages = await actions.loadMessages(chatId);
+      const chatMessages = await actions.loadMessages(chatId) as any;
       
       const exportData = {
         chat: {
-          id: chat.id,
+          id: chat.chat_id,
           title: chat.title,
           createdAt: chat.createdAt,
           updatedAt: chat.updatedAt
         },
         messages: chatMessages.map(msg => ({
-          id: msg.id,
+          id: msg.message_id,
           text: msg.text,
           sender: msg.sender,
           timestamp: msg.timestamp
@@ -284,7 +284,7 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
       const jsonString = JSON.stringify(exportData, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
       
-      Logger.info('채팅 내보내기 완료', { 
+      console.log('채팅 내보내기 완료', { 
         chatId, 
         messageCount: chatMessages.length 
       });
@@ -351,23 +351,23 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
     }
     
     autoSaveTimeoutRef.current = setTimeout(() => {
-      // 자동 저장 로직 (실제 구현에서는 store의 persist 기능 활용)
-      Logger.info('자동 저장 수행');
+             // 자동 저장 로직 (실제 구현에서는 store의 persist 기능 활용)
+       console.log('자동 저장 수행');
     }, autoSaveInterval);
   }, [autoSaveInterval]);
   
   const schedulePreloading = useCallback((currentChatId: string) => {
     // 다음 채팅들을 백그라운드에서 프리로드
     setTimeout(async () => {
-      const currentIndex = chats.findIndex(chat => chat.id === currentChatId);
+              const currentIndex = chats.findIndex(chat => chat.chat_id === currentChatId);
       const nextChats = chats.slice(currentIndex + 1, currentIndex + 3); // 다음 2개 채팅
       
       for (const chat of nextChats) {
         try {
-          await actions.loadMessages(chat.id);
+          await actions.loadMessages(chat.chat_id) as any;
         } catch (error) {
           // 프리로딩 실패는 무시 (중요하지 않음)
-          Logger.warn('프리로딩 실패', { chatId: chat.id });
+                      console.warn('프리로딩 실패', { chatId: chat.chat_id });
         }
       }
     }, 1000);
@@ -404,7 +404,7 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
   // 스크롤 위치 복원
   useEffect(() => {
     if (activeChat && messagesContainerRef.current) {
-      const savedPosition = localStorage.getItem(`scroll-${activeChat.id}`);
+              const savedPosition = localStorage.getItem(`scroll-${activeChat.chat_id}`);
       if (savedPosition) {
         messagesContainerRef.current.scrollTop = parseInt(savedPosition, 10);
       } else {
@@ -420,7 +420,7 @@ export function useOptimizedChat(options: UseOptimizedChatOptions = {}): UseOpti
     if (!container || !activeChat) return;
     
     const handleScroll = throttle(() => {
-      localStorage.setItem(`scroll-${activeChat.id}`, container.scrollTop.toString());
+                localStorage.setItem(`scroll-${activeChat.chat_id}`, container.scrollTop.toString());
     }, 500);
     
     container.addEventListener('scroll', handleScroll);

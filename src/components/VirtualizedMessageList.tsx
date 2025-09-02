@@ -208,7 +208,7 @@ export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         <div className="relative">
           {visibleItems.map(({ message, index, height }) => (
             <MessageWrapper
-              key={message.id || index}
+              key={message.message_id || index}
               message={message}
               index={index}
               height={height}

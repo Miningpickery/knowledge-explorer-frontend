@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 연동 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .test-section h3 {
+            color: #555;
+            margin-top: 0;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success { background-color: #28a745; color: white; }
+        .status.error { background-color: #dc3545; color: white; }
+        .status.loading { background-color: #17a2b8; color: white; }
+        .api-info {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 새로 구현된 API 연동 테스트</h1>
+        
+        <div class="test-section">
+            <h3>📨 메시지 API 테스트</h3>
+            <div class="api-info">
+                <strong>GET /api/messages</strong> - 전체 메시지 조회 (페이지네이션, 필터링, 검색 지원)
+            </div>
+            <button class="test-button" onclick="testMessagesAPI()">기본 메시지 조회</button>
+            <button class="test-button" onclick="testMessagesWithLimit()">5개 제한 조회</button>
+            <button class="test-button" onclick="testMessagesSearch()">텍스트 검색</button>
+            <button class="test-button" onclick="testMessagesBySender()">발신자별 필터링</button>
+            <div id="messagesResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>👥 사용자 API 테스트</h3>
+            <div class="api-info">
+                <strong>GET /api/users</strong> - 전체 사용자 조회 (페이지네이션, 검색, 역할별 필터링 지원)
+            </div>
+            <button class="test-button" onclick="testUsersAPI()">기본 사용자 조회</button>
+            <button class="test-button" onclick="testUsersWithLimit()">3개 제한 조회</button>
+            <button class="test-button" onclick="testUsersSearch()">이름 검색</button>
+            <div id="usersResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🛡️ 보안 API 테스트</h3>
+            <div class="api-info">
+                <strong>GET /api/security</strong> - 전체 보안 위협 조회 (페이지네이션, 위협 유형별 필터링 지원)
+            </div>
+            <button class="test-button" onclick="testSecurityAPI()">기본 보안 위협 조회</button>
+            <button class="test-button" onclick="testSecurityWithLimit()">3개 제한 조회</button>
+            <button class="test-button" onclick="testSecurityByType()">위협 유형별 필터링</button>
+            <div id="securityResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 기존 API 테스트</h3>
+            <div class="api-info">
+                <strong>GET /health</strong> - 서버 상태 확인
+            </div>
+            <button class="test-button" onclick="testHealthAPI()">서버 상태 확인</button>
+            <div id="healthResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 테스트 결과 요약</h3>
+            <div id="summaryResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001';
+        let testResults = {};
+
+        // 공통 함수: API 호출
+        async function callAPI(endpoint, options = {}) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            try {
+                const response = await fetch(url, {
+                    method: options.method || 'GET',
+                    headers: options.headers || {
+                        'Content-Type': 'application/json'
+                    },
+                    body: options.body ? JSON.stringify(options.body) : undefined
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                return { success: true, data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message, status: 'error' };
+            }
+        }
+
+        // 결과 표시 함수
+        function showResult(elementId, result, title) {
+            const element = document.getElementById(elementId);
+            const statusClass = result.success ? 'success' : 'error';
+            const statusText = result.success ? '성공' : '실패';
+            
+            element.className = `result ${statusClass}`;
+            element.innerHTML = `
+                <div>
+                    <strong>${title}</strong>
+                    <span class="status ${statusClass}">${statusText}</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <strong>응답:</strong><br>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                </div>
+            `;
+
+            // 테스트 결과 저장
+            testResults[elementId] = result;
+            updateSummary();
+        }
+
+        // 로딩 표시 함수
+        function showLoading(elementId, title) {
+            const element = document.getElementById(elementId);
+            element.className = 'result loading';
+            element.innerHTML = `
+                <div>
+                    <strong>${title}</strong>
+                    <span class="status loading">로딩 중...</span>
+                </div>
+            `;
+        }
+
+        // 메시지 API 테스트
+        async function testMessagesAPI() {
+            showLoading('messagesResult', '메시지 API 테스트');
+            const result = await callAPI('/api/messages');
+            showResult('messagesResult', result, '메시지 API 테스트');
+        }
+
+        async function testMessagesWithLimit() {
+            showLoading('messagesResult', '메시지 제한 조회 테스트');
+            const result = await callAPI('/api/messages?limit=5');
+            showResult('messagesResult', result, '메시지 제한 조회 테스트');
+        }
+
+        async function testMessagesSearch() {
+            showLoading('messagesResult', '메시지 검색 테스트');
+            const result = await callAPI('/api/messages?search=질문&limit=3');
+            showResult('messagesResult', result, '메시지 검색 테스트');
+        }
+
+        async function testMessagesBySender() {
+            showLoading('messagesResult', '발신자별 필터링 테스트');
+            const result = await callAPI('/api/messages?sender=user&limit=3');
+            showResult('messagesResult', result, '발신자별 필터링 테스트');
+        }
+
+        // 사용자 API 테스트
+        async function testUsersAPI() {
+            showLoading('usersResult', '사용자 API 테스트');
+            const result = await callAPI('/api/users');
+            showResult('usersResult', result, '사용자 API 테스트');
+        }
+
+        async function testUsersWithLimit() {
+            showLoading('usersResult', '사용자 제한 조회 테스트');
+            const result = await callAPI('/api/users?limit=3');
+            showResult('usersResult', result, '사용자 제한 조회 테스트');
+        }
+
+        async function testUsersSearch() {
+            showLoading('usersResult', '사용자 검색 테스트');
+            const result = await callAPI('/api/users?search=James&limit=2');
+            showResult('usersResult', result, '사용자 검색 테스트');
+        }
+
+        // 보안 API 테스트
+        async function testSecurityAPI() {
+            showLoading('securityResult', '보안 API 테스트');
+            const result = await callAPI('/api/security');
+            showResult('securityResult', result, '보안 API 테스트');
+        }
+
+        async function testSecurityWithLimit() {
+            showLoading('securityResult', '보안 위협 제한 조회 테스트');
+            const result = await callAPI('/api/security?limit=3');
+            showResult('securityResult', result, '보안 위협 제한 조회 테스트');
+        }
+
+        async function testSecurityByType() {
+            showLoading('securityResult', '위협 유형별 필터링 테스트');
+            const result = await callAPI('/api/security?threatType=PROMPT_INJECTION&limit=2');
+            showResult('securityResult', result, '위협 유형별 필터링 테스트');
+        }
+
+        // 헬스 API 테스트
+        async function testHealthAPI() {
+            showLoading('healthResult', '헬스 API 테스트');
+            const result = await callAPI('/health');
+            showResult('healthResult', result, '헬스 API 테스트');
+        }
+
+        // 테스트 결과 요약 업데이트
+        function updateSummary() {
+            const summaryElement = document.getElementById('summaryResult');
+            const totalTests = Object.keys(testResults).length;
+            const successfulTests = Object.values(testResults).filter(r => r.success).length;
+            const failedTests = totalTests - successfulTests;
+
+            let summaryHTML = `
+                <h4>📊 테스트 결과 요약</h4>
+                <div style="margin-bottom: 15px;">
+                    <strong>총 테스트:</strong> ${totalTests}개<br>
+                    <strong>성공:</strong> <span style="color: #28a745;">${successfulTests}개</span><br>
+                    <strong>실패:</strong> <span style="color: #dc3545;">${failedTests}개</span>
+                </div>
+            `;
+
+            if (totalTests > 0) {
+                summaryHTML += '<h5>상세 결과:</h5>';
+                Object.entries(testResults).forEach(([testName, result]) => {
+                    const status = result.success ? '✅' : '❌';
+                    const statusClass = result.success ? 'success' : 'error';
+                    summaryHTML += `
+                        <div style="margin: 5px 0; padding: 5px; background-color: ${result.success ? '#d4edda' : '#f8d7da'}; border-radius: 3px;">
+                            ${status} ${testName}: <span class="status ${statusClass}">${result.success ? '성공' : '실패'}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            summaryElement.innerHTML = summaryHTML;
+        }
+
+        // 페이지 로드 시 자동으로 기본 테스트 실행
+        window.addEventListener('load', async () => {
+            console.log('🚀 API 연동 테스트 페이지 로드됨');
+            console.log(`📍 API 서버: ${API_BASE_URL}`);
+            
+            // 기본 테스트 실행
+            await testHealthAPI();
+            await testMessagesAPI();
+            await testUsersAPI();
+            await testSecurityAPI();
+        });
+    </script>
+</body>
+</html>

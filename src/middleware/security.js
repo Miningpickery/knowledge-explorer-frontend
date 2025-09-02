@@ -8,7 +8,7 @@ const helmet = require('helmet');
 // 일반 API 요청 Rate Limiting (개발 환경용)
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15분
-  max: 1000, // IP당 최대 1000개 요청 (개발 환경)
+  max: 2000, // IP당 최대 2000개 요청으로 증가 (개발 환경)
   message: {
     error: {
       code: 'RATE_LIMIT_EXCEEDED',
@@ -23,28 +23,36 @@ const apiLimiter = rateLimit({
   skipFailedRequests: false
 });
 
-// 로그인 요청 Rate Limiting (더 엄격)
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15분
-  max: 5, // IP당 최대 5번 로그인 시도
-  message: {
-    error: {
-      code: 'LOGIN_RATE_LIMIT_EXCEEDED',
-      message: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.',
-      details: 'Login rate limit exceeded'
+// 로그인 요청 Rate Limiting (개발 환경에서는 비활성화)
+const loginLimiter = (req, res, next) => {
+  // 개발 환경에서는 Rate Limit 비활성화
+  if (process.env.NODE_ENV === 'development') {
+    return next();
+  }
+  
+  // 프로덕션 환경에서만 Rate Limit 적용
+  return rateLimit({
+    windowMs: 15 * 60 * 1000, // 15분
+    max: 5, // IP당 최대 5번 로그인 시도
+    message: {
+      error: {
+        code: 'LOGIN_RATE_LIMIT_EXCEEDED',
+        message: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.',
+        details: 'Login rate limit exceeded'
+      },
+      timestamp: new Date().toISOString()
     },
-    timestamp: new Date().toISOString()
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // 성공한 로그인은 카운트하지 않음
-  skipFailedRequests: false
-});
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true, // 성공한 로그인은 카운트하지 않음
+    skipFailedRequests: false
+  })(req, res, next);
+};
 
 // 채팅 메시지 Rate Limiting (개발 환경용)
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000, // 1분
-  max: 100, // IP당 최대 100개 메시지 (개발 환경)
+  max: 200, // IP당 최대 200개 메시지로 증가 (개발 환경)
   message: {
     error: {
       code: 'CHAT_RATE_LIMIT_EXCEEDED',
@@ -67,7 +75,7 @@ const securityHeaders = helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:3001", "ws:", "wss:"],
+      connectSrc: ["'self'", "http://localhost:3001", "http://192.168.0.55:3001", "ws:", "wss:"],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -85,11 +93,13 @@ const securityHeaders = helmet({
 
 // CORS 설정 강화
 const corsOptions = {
-  origin: function (origin, callback) {
+  origin (origin, callback) {
     const allowedOrigins = [
       'http://localhost:8000',
       'http://localhost:8001',
       'http://localhost:3000',
+      'http://192.168.0.55:8000',  // 로컬 네트워크 IP 주소 추가
+      'http://192.168.0.55:3001',  // 백엔드 IP 주소 추가
       process.env.FRONTEND_URL
     ].filter(Boolean);
     
@@ -97,6 +107,7 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log('🚫 CORS 차단된 origin:', origin);
       callback(new Error('CORS 정책에 의해 차단되었습니다'));
     }
   },

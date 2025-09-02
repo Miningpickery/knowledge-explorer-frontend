@@ -13,15 +13,15 @@ const pool = new Pool({
 async function initializeSecurityTables() {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS security_threats (
-        id SERIAL PRIMARY KEY,
+             CREATE TABLE IF NOT EXISTS security_threats (
+         threat_id SERIAL PRIMARY KEY,
         threat_type VARCHAR(50) NOT NULL,
         threat_level VARCHAR(20) NOT NULL,
         user_question TEXT NOT NULL,
         detected_patterns TEXT[],
         user_ip VARCHAR(45),
         user_agent TEXT,
-        chat_id VARCHAR(100),
+        chat_id VARCHAR(50) REFERENCES chat_sessions(chat_id) ON DELETE SET NULL,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         handled BOOLEAN DEFAULT FALSE,
         response_type VARCHAR(50) DEFAULT 'security_response'
@@ -69,7 +69,7 @@ async function logSecurityThreat(threatData) {
       INSERT INTO security_threats 
       (threat_type, threat_level, user_question, detected_patterns, user_ip, user_agent, chat_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id
+             RETURNING threat_id
     `;
 
     const result = await pool.query(query, [
@@ -82,14 +82,14 @@ async function logSecurityThreat(threatData) {
       chatId
     ]);
 
-    console.log(`🛡️ 보안 위협 로깅 완료 - ID: ${result.rows[0].id}`);
+    console.log(`🛡️ 보안 위협 로깅 완료 - ID: ${result.rows[0].threat_id}`);
     
     // 높은 수준의 위협은 즉시 알림
     if (threatLevel === 'HIGH' || threatLevel === 'CRITICAL') {
       await sendSecurityAlert(threatData);
     }
     
-    return result.rows[0].id;
+    return result.rows[0].threat_id;
   } catch (error) {
     console.error('❌ 보안 위협 로깅 실패:', error);
     // 로깅 실패가 전체 시스템에 영향을 주지 않도록 에러를 던지지 않음
@@ -176,7 +176,7 @@ async function getRecentThreats(limit = 10) {
   try {
     const query = `
       SELECT 
-        id,
+                 threat_id,
         threat_type,
         threat_level,
         LEFT(user_question, 100) as question_preview,
@@ -201,7 +201,7 @@ async function markThreatHandled(threatId) {
     const query = `
       UPDATE security_threats 
       SET handled = TRUE 
-      WHERE id = $1
+      WHERE threat_id = $1
     `;
 
     await pool.query(query, [threatId]);
@@ -234,6 +234,51 @@ async function analyzeIpThreats(userIp, timeWindow = '1 hour') {
   }
 }
 
+// 전체 보안 위협 조회 (페이지네이션 지원)
+async function getAllThreats(options = {}) {
+  try {
+    const { page = 1, limit = 50, offset = 0, threatType, severity, status } = options;
+    
+    let query = `
+      SELECT threat_id, threat_type, threat_level, user_question, detected_patterns, 
+             user_ip, user_agent, chat_id, timestamp, handled
+      FROM security_threats
+      WHERE 1=1
+    `;
+    
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    // 필터링 조건 추가
+    if (threatType) {
+      query += ` AND threat_type = $${paramIndex++}`;
+      queryParams.push(threatType);
+    }
+    
+    if (severity) {
+      query += ` AND threat_level = $${paramIndex++}`;
+      queryParams.push(severity);
+    }
+    
+    if (status === 'handled') {
+      query += ` AND handled = TRUE`;
+    } else if (status === 'unhandled') {
+      query += ` AND handled = FALSE`;
+    }
+    
+    // 정렬 및 페이지네이션
+    query += ` ORDER BY timestamp DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+    queryParams.push(limit, offset);
+    
+    const result = await pool.query(query, queryParams);
+    return result.rows;
+    
+  } catch (error) {
+    console.error('Error fetching all security threats:', error);
+    throw error;
+  }
+}
+
 // 보안 대시보드 데이터
 async function getSecurityDashboard() {
   try {
@@ -258,7 +303,7 @@ async function getSecurityDashboard() {
       totalThreats: totalThreatsResult.rows[0]?.total || 0,
       levelDistribution: levelDistributionResult.rows,
       hourlyStats: stats,
-      recentThreats: recentThreats
+      recentThreats
     };
   } catch (error) {
     console.error('❌ 보안 대시보드 데이터 조회 실패:', error);
@@ -276,6 +321,7 @@ module.exports = {
   logSecurityThreat,
   getSecurityStats,
   getRecentThreats,
+  getAllThreats,
   markThreatHandled,
   analyzeIpThreats,
   getSecurityDashboard,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ChatSession } from '../types';
 import { Plus, MessageSquareText, Trash2 } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -15,6 +15,7 @@ interface ChatHistoryProps {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   onDeleteChat: (id: string) => void;
+  onUpdateChatTitle?: (id: string, newTitle: string) => void;
 }
 
 const ChatHistory: React.FC<ChatHistoryProps> = ({
@@ -23,7 +24,36 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   onNewChat,
   onSelectChat,
   onDeleteChat,
+  onUpdateChatTitle,
 }) => {
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
+
+  const handleEditTitle = (chat: ChatSession) => {
+    setEditingChatId(chat.chat_id);
+    setEditingTitle(chat.title || '새 대화');
+  };
+
+  const handleSaveTitle = async () => {
+    if (editingChatId && editingTitle.trim() && onUpdateChatTitle) {
+      await onUpdateChatTitle(editingChatId, editingTitle.trim());
+    }
+    setEditingChatId(null);
+    setEditingTitle('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingChatId(null);
+    setEditingTitle('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveTitle();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -71,15 +101,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
           ) : (
             <div className="space-y-1">
               {chats.map((chat) => (
-                <div key={chat.id} className="relative group">
+                <div key={chat.chat_id} className="relative group">
                   <button
-                    onClick={() => onSelectChat(chat.id)}
+                    onClick={() => onSelectChat(chat.chat_id)}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-200",
                       "hover:bg-accent hover:text-accent-foreground",
                       "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
                       "touch-manipulation",
-                      activeChatId === chat.id 
+                      activeChatId === chat.chat_id 
                         ? 'bg-primary text-primary-foreground shadow-sm' 
                         : 'text-muted-foreground'
                     )}
@@ -90,14 +120,30 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
                       className="flex-shrink-0" 
                       aria-hidden="true" 
                     />
-                    <span className="flex-1 truncate text-balance text-sm">
-                      {chat.title || '새 대화'}
-                    </span>
+                    {editingChatId === chat.chat_id ? (
+                      <input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={handleSaveTitle}
+                        onKeyDown={handleKeyPress}
+                        className="flex-1 bg-transparent border-none outline-none text-sm"
+                        autoFocus
+                      />
+                    ) : (
+                      <span 
+                        className="flex-1 truncate text-balance text-sm cursor-pointer"
+                        onDoubleClick={() => handleEditTitle(chat)}
+                        title="더블클릭하여 제목 수정"
+                      >
+                        {chat.title || '새 대화'}
+                      </span>
+                    )}
                   </button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => handleDelete(e, chat.id)}
+                    onClick={(e) => handleDelete(e, chat.chat_id)}
                     className={
                       "absolute right-2 top-1/2 -translate-y-1/2 " +
                       "opacity-0 group-hover:opacity-100 transition-opacity " +

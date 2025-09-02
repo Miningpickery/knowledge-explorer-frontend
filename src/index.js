@@ -65,6 +65,7 @@ const securityRoutes = require('./routes/securityRoutes');
 const authRoutes = require('./routes/authRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // 📊 모니터링 시스템 (임시 비활성화)
 // const { ErrorMonitoring, logger } = require('./services/monitoring');
@@ -153,6 +154,7 @@ app.use('/', healthRoutes);
 // 🔗 API Routes
 app.use('/api/chats', chatRoutes);
 app.use('/api/chats', messageRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/export', exportRoutes);
@@ -161,6 +163,7 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/security', securityRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/memories', memoryRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 📊 Sentry 에러 핸들러 (라우트 후, 에러 핸들러 전)
 app.use(ErrorMonitoring.getErrorHandler());
@@ -174,7 +177,7 @@ app.use((err, req, res, next) => {
     method: req.method,
     url: req.url,
     statusCode: err.statusCode || 500,
-    userId: req.user?.id,
+          userId: req.user?.user_id,
   });
 
   res.status(err.statusCode || 500).json({
@@ -203,7 +206,18 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// 관리자 테이블 초기화
+const { initializeAdminTables } = require('./services/adminService');
+
+app.listen(PORT, '0.0.0.0', async () => {
+  try {
+    // 관리자 테이블 초기화
+    await initializeAdminTables();
+    console.log('✅ 관리자 시스템 초기화 완료');
+  } catch (error) {
+    console.error('❌ 관리자 시스템 초기화 실패:', error);
+  }
+
   // 🚀 서버 시작 로깅
   logger.info('Knowledge Explorer Backend started successfully', {
     type: 'server_start',
@@ -218,4 +232,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Knowledge Explorer Backend running on port ${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/health`);
   console.log(`📊 Monitoring Dashboard: http://localhost:${PORT}/health/comprehensive`);
+  console.log(`🔐 Admin Dashboard: http://localhost:8000/admin`);
 });

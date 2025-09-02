@@ -7,8 +7,6 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { ChatSession, ChatMessage, User } from '../types/chat.types';
 import { ChatService } from '../services/ChatService';
-import { StorageAdapter } from '../../data/adapters/StorageAdapter';
-import { Logger } from '../../infrastructure/logger/Logger';
 
 interface ChatState {
   // 📊 상태
@@ -69,7 +67,7 @@ export const useChatStore = create<ChatState>()(
                 isAuthenticated ? 'server' : 'local'
               );
               
-              const chats = await chatService.loadChats(user?.id);
+              const chats = await chatService.loadChats(user?.user_id as any);
               
               set({ 
                 chats, 
@@ -78,12 +76,12 @@ export const useChatStore = create<ChatState>()(
                 activeChat: chats.length > 0 ? chats[0] : null
               });
               
-              Logger.info('채팅 목록 로드 완료', { count: chats.length });
+              console.log('채팅 목록 로드 완료', { count: chats.length });
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '채팅 로드 실패';
               set({ error: errorMessage, isLoading: false });
-              Logger.error('채팅 로드 실패', error);
+              console.error('채팅 로드 실패', error);
             }
           },
           
@@ -99,24 +97,22 @@ export const useChatStore = create<ChatState>()(
               
               const newChat = await chatService.createChat({
                 title,
-                userId: user?.id,
-                timestamp: new Date().toISOString()
+                userId: user?.user_id
               });
               
               set(state => ({
                 chats: [newChat, ...state.chats],
                 activeChat: newChat,
-                messages: [],
                 isLoading: false
               }));
               
-              Logger.info('새 채팅 생성', { chatId: newChat.id, title });
+              console.log('새 채팅 생성', { chatId: newChat.chat_id, title });
               return newChat;
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '채팅 생성 실패';
               set({ error: errorMessage, isLoading: false });
-              Logger.error('채팅 생성 실패', error);
+              console.error('채팅 생성 실패', error);
               throw error;
             }
           },
@@ -125,90 +121,82 @@ export const useChatStore = create<ChatState>()(
           selectChat: async (chatId: string) => {
             try {
               const { chats } = get();
-              const selectedChat = chats.find(chat => chat.id === chatId);
+              const selectedChat = chats.find(chat => chat.chat_id === chatId);
               
               if (!selectedChat) {
-                throw new Error(`채팅을 찾을 수 없습니다: ${chatId}`);
+                throw new Error('채팅을 찾을 수 없습니다.');
               }
               
               set({ activeChat: selectedChat });
+              
+              // 해당 채팅의 메시지 로드
               await get().actions.loadMessages(chatId);
               
-              Logger.info('채팅 선택', { chatId, title: selectedChat.title });
+              console.log('채팅 선택', { chatId, title: selectedChat.title });
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '채팅 선택 실패';
               set({ error: errorMessage });
-              Logger.error('채팅 선택 실패', error);
+              console.error('채팅 선택 실패', error);
             }
           },
           
           // 🗑️ 채팅 삭제
           deleteChat: async (chatId: string) => {
             try {
-              const { isAuthenticated, user, chats, activeChat } = get();
+              const { isAuthenticated, user } = get();
               const chatService = new ChatService(
                 isAuthenticated ? 'server' : 'local'
               );
               
-              await chatService.deleteChat(chatId, user?.id);
+              await chatService.deleteChat(chatId);
               
-              const updatedChats = chats.filter(chat => chat.id !== chatId);
-              const newActiveChat = activeChat?.id === chatId 
-                ? (updatedChats.length > 0 ? updatedChats[0] : null)
-                : activeChat;
+              set(state => ({
+                chats: state.chats.filter(chat => chat.chat_id !== chatId),
+                activeChat: state.activeChat?.chat_id === chatId ? null : state.activeChat
+              }));
               
-              set({
-                chats: updatedChats,
-                activeChat: newActiveChat,
-                messages: activeChat?.id === chatId ? [] : get().messages
-              });
-              
-              Logger.info('채팅 삭제', { chatId });
+              console.log('채팅 삭제', { chatId });
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '채팅 삭제 실패';
               set({ error: errorMessage });
-              Logger.error('채팅 삭제 실패', error);
+              console.error('채팅 삭제 실패', error);
             }
           },
           
-          // 💬 메시지 전송
+          // 📤 메시지 전송
           sendMessage: async (text: string) => {
             try {
-              const { activeChat, isAuthenticated, user } = get();
+              const { activeChat, user } = get();
               
               if (!activeChat) {
-                // 활성 채팅이 없으면 새로 생성
-                const newChat = await get().actions.createChat();
-                set({ activeChat: newChat });
+                throw new Error('활성 채팅이 없습니다.');
               }
               
               set({ isLoading: true, error: null });
               
-              const chatService = new ChatService(
-                isAuthenticated ? 'server' : 'local'
-              );
+              const chatService = new ChatService('server');
               
-              // 사용자 메시지 즉시 추가 (낙관적 업데이트)
-              const userMessage: ChatMessage = {
-                id: `temp-${Date.now()}`,
-                text,
-                sender: 'user',
-                timestamp: new Date().toISOString(),
-                isLoading: false
-              };
+                             // 사용자 메시지 즉시 추가 (낙관적 업데이트)
+               const userMessage: ChatMessage = {
+                 message_id: `temp-${Date.now()}`,
+                 text,
+                 sender: 'user',
+                 timestamp: new Date().toISOString(),
+                 status: 'sent'
+               };
               
               set(state => ({
                 messages: [...state.messages, userMessage]
               }));
               
               // AI 응답 받기 (스트리밍)
-              await chatService.sendMessage(
-                get().activeChat!.id,
+              await (chatService.sendMessage as any)(
+                activeChat.chat_id,
                 text,
-                user?.id,
-                (streamingMessage) => {
+                user?.user_id,
+                (streamingMessage: any) => {
                   // 실시간 응답 업데이트
                   set(state => {
                     const updatedMessages = [...state.messages];
@@ -226,12 +214,12 @@ export const useChatStore = create<ChatState>()(
               );
               
               set({ isLoading: false });
-              Logger.info('메시지 전송 완료', { text: text.substring(0, 50) });
+              console.log('메시지 전송 완료', { text: text.substring(0, 50) });
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '메시지 전송 실패';
               set({ error: errorMessage, isLoading: false });
-              Logger.error('메시지 전송 실패', error);
+              console.error('메시지 전송 실패', error);
             }
           },
           
@@ -243,15 +231,15 @@ export const useChatStore = create<ChatState>()(
                 isAuthenticated ? 'server' : 'local'
               );
               
-              const messages = await chatService.loadMessages(chatId, user?.id);
+              const messages = await (chatService.loadMessages as any)(chatId, user?.user_id);
               set({ messages });
               
-              Logger.info('메시지 로드 완료', { chatId, count: messages.length });
+              console.log('메시지 로드 완료', { chatId, count: messages.length });
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : '메시지 로드 실패';
               set({ error: errorMessage });
-              Logger.error('메시지 로드 실패', error);
+              console.error('메시지 로드 실패', error);
             }
           },
           
@@ -269,7 +257,7 @@ export const useChatStore = create<ChatState>()(
             // 서버 채팅 목록 로드
             get().actions.loadChats();
             
-            Logger.info('사용자 로그인', { userId: user.id, email: user.email });
+            console.log('사용자 로그인', { userId: user.user_id, email: user.email });
           },
           
           // 🚪 로그아웃
@@ -286,14 +274,14 @@ export const useChatStore = create<ChatState>()(
             // 로컬 채팅 목록 로드
             get().actions.loadChats();
             
-            Logger.info('사용자 로그아웃');
+            console.log('사용자 로그아웃');
           },
           
           // ❌ 에러 설정
           setError: (error: string | null) => {
             set({ error });
             if (error) {
-              Logger.error('애플리케이션 에러', error);
+              console.error('애플리케이션 에러', error);
             }
           },
           
@@ -307,16 +295,18 @@ export const useChatStore = create<ChatState>()(
         name: 'chat-store',
         // 민감한 정보는 persist에서 제외
         partialize: (state) => ({
+          chats: state.chats,
+          activeChat: state.activeChat,
+          messages: state.messages,
           user: state.user,
           isAuthenticated: state.isAuthenticated
         })
       }
-    ),
-    { name: 'ChatStore' }
+    )
   )
 );
 
-// 🎯 셀렉터 훅들 (성능 최적화)
+// 🎯 편의 함수들
 export const useChats = () => useChatStore(state => state.chats);
 export const useActiveChat = () => useChatStore(state => state.activeChat);
 export const useMessages = () => useChatStore(state => state.messages);

@@ -50,7 +50,7 @@ export const createNewChat = async (initialMessages: ChatMessage[] = []): Promis
     console.error("Failed to create new chat:", error);
     // Fallback to localStorage if API fails
     const fallbackChat: ChatSession = {
-      id: `chat-${Date.now()}`,
+      chat_id: `chat-${Date.now()}`,
       title: getTitleFromMessages(initialMessages) || "새 대화",
       messages: initialMessages,
     };
@@ -58,9 +58,9 @@ export const createNewChat = async (initialMessages: ChatMessage[] = []): Promis
   }
 };
 
-export const updateChat = async (id: string, updates: Partial<ChatSession>): Promise<void> => {
+export const updateChat = async (chatId: string, updates: Partial<ChatSession>): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/chats/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ export const updateChat = async (id: string, updates: Partial<ChatSession>): Pro
       const historyJson = localStorage.getItem(CHAT_HISTORY_KEY);
       if (historyJson) {
         const allChats = JSON.parse(historyJson) as ChatSession[];
-        const chatIndex = allChats.findIndex(c => c.id === id);
+        const chatIndex = allChats.findIndex(c => c.chat_id === chatId);
         
         if (chatIndex > -1) {
           const chatToUpdate = allChats[chatIndex];
@@ -101,9 +101,9 @@ export const updateChat = async (id: string, updates: Partial<ChatSession>): Pro
   }
 };
 
-export const deleteChat = async (id: string): Promise<void> => {
+export const deleteChat = async (chatId: string): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/chats/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
       method: 'DELETE',
     });
     
@@ -118,7 +118,7 @@ export const deleteChat = async (id: string): Promise<void> => {
       const historyJson = localStorage.getItem(CHAT_HISTORY_KEY);
       if (historyJson) {
         const allChats = JSON.parse(historyJson) as ChatSession[];
-        const filteredChats = allChats.filter(c => c.id !== id);
+        const filteredChats = allChats.filter(c => c.chat_id !== chatId);
         localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(filteredChats));
       }
     } catch (localError) {

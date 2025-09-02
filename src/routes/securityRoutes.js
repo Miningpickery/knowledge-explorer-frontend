@@ -6,6 +6,46 @@ const express = require('express');
 const router = express.Router();
 const securityService = require('../services/securityService');
 
+// GET /api/security - 전체 보안 위협 조회 (페이지네이션 지원)
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, threatType, severity, status } = req.query;
+    const offset = (page - 1) * limit;
+    
+    // 보안 위협 조회 서비스 호출
+    const threats = await securityService.getAllThreats({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      offset,
+      threatType,
+      severity,
+      status
+    });
+    
+    res.json({
+      success: true,
+      data: threats,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: threats.length,
+        hasMore: threats.length === parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching security threats:', error);
+    res.status(500).json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '보안 위협 조회 중 오류가 발생했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // 보안 대시보드 데이터 조회
 router.get('/dashboard', async (req, res) => {
   try {
@@ -111,7 +151,7 @@ router.get('/threats/:id', async (req, res) => {
     
     // 보안 위협 상세 정보 조회 (securityService에 추가 필요)
     const query = `
-      SELECT * FROM security_threats WHERE id = $1
+      SELECT * FROM security_threats WHERE threat_id = $1
     `;
     
     const { Pool } = require('pg');

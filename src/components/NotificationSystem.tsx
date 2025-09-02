@@ -15,9 +15,9 @@ export const NotificationSystem: React.FC = () => {
     <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
       {notifications.map((notification) => (
         <NotificationItem
-          key={notification.id}
+          key={notification.notification_id}
           notification={notification}
-          onDismiss={() => removeNotification(notification.id)}
+                      onDismiss={() => removeNotification(notification.notification_id)}
         />
       ))}
     </div>

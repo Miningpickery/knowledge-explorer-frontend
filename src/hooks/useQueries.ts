@@ -78,7 +78,7 @@ export function useDeleteChatMutation() {
     },
     onSuccess: (deletedChatId) => {
       queryClient.setQueryData(['chats'], (old: ChatSession[] = []) => 
-        old.filter(chat => chat.id !== deletedChatId)
+        old.filter(chat => chat.chat_id !== deletedChatId)
       );
       queryClient.removeQueries({ queryKey: ['chat-messages', deletedChatId] });
     },

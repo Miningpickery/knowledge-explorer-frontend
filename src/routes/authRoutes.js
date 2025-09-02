@@ -24,8 +24,8 @@ console.log('🔐 Google OAuth 설정:', {
 
 // 실제 값 확인 (디버깅용)
 console.log('🔍 실제 환경 변수 값:', {
-  GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID ? GOOGLE_CLIENT_ID.substring(0, 20) + '...' : '없음',
-  GOOGLE_CLIENT_SECRET: GOOGLE_CLIENT_SECRET ? GOOGLE_CLIENT_SECRET.substring(0, 10) + '...' : '없음'
+  GOOGLE_CLIENT_ID: GOOGLE_CLIENT_ID ? `${GOOGLE_CLIENT_ID.substring(0, 20)  }...` : '없음',
+  GOOGLE_CLIENT_SECRET: GOOGLE_CLIENT_SECRET ? `${GOOGLE_CLIENT_SECRET.substring(0, 10)  }...` : '없음'
 });
 
 if (GOOGLE_CLIENT_ID === 'your-google-client-id' || GOOGLE_CLIENT_SECRET === 'your-google-client-secret') {
@@ -54,12 +54,12 @@ passport.use(new GoogleStrategy({
 
 // Passport 직렬화/역직렬화
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+          done(null, user.user_id);
 });
 
-passport.deserializeUser(async (id, done) => {
+passport.deserializeUser(async (userId, done) => {
   try {
-    const user = await authService.getUserById(id);
+    const user = await authService.getUserById(userId);
     done(null, user);
   } catch (error) {
     done(error, null);
@@ -82,7 +82,7 @@ router.get('/google', (req, res, next) => {
         details: [
           '1. Google Cloud Console에서 새 프로젝트 생성',
           '2. APIs & Services > Credentials에서 OAuth 2.0 클라이언트 ID 생성',
-          '3. 승인된 리디렉션 URI에 http://localhost:3001/api/auth/google/callback 추가',
+          '3. 승인된 리디렉션 URI에 http://localhost:3001/api/auth/google/callback 추가 (백엔드)',
           '4. 환경 변수 설정: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET'
         ],
         setupUrl: 'https://console.cloud.google.com/apis/credentials'
@@ -173,8 +173,23 @@ router.post('/logout', authenticateToken, async (req, res) => {
 
 // 현재 사용자 정보 조회
 router.get('/me', authenticateToken, async (req, res) => {
+  console.log('🔍 /me 엔드포인트 호출됨:', {
+    method: req.method,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    headers: req.headers,
+    user: req.user
+  });
+  
   try {
-    const user = await authService.getUserById(req.user.userId);
+    console.log('🔍 사용자 정보 조회 시작:', { userId: req.user.user_id });
+    const user = await authService.getUserById(req.user.user_id);
+    console.log('🔍 사용자 정보 조회 결과:', { 
+      found: !!user, 
+      userId: user?.user_id, 
+      email: user?.email 
+    });
     if (!user) {
       return res.status(404).json({
         error: {
@@ -188,12 +203,29 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     // 민감한 정보 제외
     const { password, ...userInfo } = user;
+    
+    console.log('✅ 사용자 정보 조회 성공, 응답 전송:', {
+      userId: userInfo.user_id,
+      email: userInfo.email,
+      name: userInfo.name
+    });
+    
     res.json({
       success: true,
-      data: userInfo
+      data: {
+        ...userInfo,
+        user_id: userInfo.user_id
+      }
     });
+    
+    console.log('✅ 응답 전송 완료');
   } catch (error) {
     console.error('❌ 사용자 정보 조회 실패:', error);
+    console.log('❌ 에러 응답 전송:', {
+      status: 500,
+      errorCode: 'USER_INFO_FAILED'
+    });
+    
     res.status(500).json({
       error: {
         code: 'USER_INFO_FAILED',
@@ -202,6 +234,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+    
+    console.log('❌ 에러 응답 전송 완료');
   }
 });
 
@@ -214,7 +248,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
     if (name) updates.name = name;
     if (username !== undefined) updates.username = username;
 
-    const updatedUser = await authService.updateUserProfile(req.user.userId, updates);
+    const updatedUser = await authService.updateUserProfile(req.user.user_id, updates);
     
     res.json({
       success: true,
@@ -237,7 +271,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
 // 계정 비활성화
 router.delete('/account', authenticateToken, async (req, res) => {
   try {
-    await authService.deactivateUser(req.user.userId);
+    await authService.deactivateUser(req.user.user_id);
     
     res.json({
       success: true,
@@ -301,13 +335,13 @@ router.post('/verify', async (req, res) => {
       success: true,
       data: {
         valid: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          googleId: user.google_id,
-          profilePicture: user.profile_picture
-        }
+                 user: {
+           user_id: user.user_id,
+           email: user.email,
+           name: user.name,
+           googleId: user.google_id,
+           profilePicture: user.profile_picture
+         }
       }
     });
   } catch (error) {
@@ -341,7 +375,7 @@ router.get('/customer/:customerId', async (req, res) => {
     
     res.json({
       success: true,
-      user: user
+      user
     });
   } catch (error) {
     console.error('Error getting user by customer ID:', error);

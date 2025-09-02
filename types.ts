@@ -14,17 +14,20 @@ export interface GroundingSource {
 }
 
 export interface ChatMessage {
-  id: string;
+  message_id: string;  // 백엔드 Key와 통일
   text: string;
   sender: MessageSender;
   isLoading?: boolean;
   isStreaming?: boolean;
   sources?: GroundingSource[];
   followUpQuestions?: string[];
+  timestamp?: string;
 }
 
 export interface ChatSession {
-  id: string;
+  chat_id: string;  // 백엔드 Key와 통일
   title: string;
   messages: ChatMessage[];
+  created_at?: string;
+  updated_at?: string;
 }

@@ -20,7 +20,7 @@ export enum UserRole {
 
 // 📝 Message Types
 export interface ChatMessage {
-  id: string;
+  message_id: string;  // 🚨 id → message_id로 변경
   text: string;
   sender: MessageSender;
   timestamp: string;
@@ -34,7 +34,7 @@ export interface ChatMessage {
 
 // 💬 Chat Session Types
 export interface ChatSession {
-  id: string;
+  chat_id: string;  // 백엔드 Key와 통일
   user_id?: number; // Optional for anonymous chats
   title: string;
   status: ChatStatus;
@@ -49,7 +49,7 @@ export interface ChatSession {
 
 // 👤 User Types
 export interface User {
-  id: number;
+  user_id: number;  // 🚨 id → user_id로 변경
   email: string;
   name: string;
   username?: string;
@@ -169,7 +169,7 @@ export interface AppState {
 
 // 🔔 Notification Types
 export interface Notification {
-  id: string;
+  notification_id: string;  // 🚨 id → notification_id로 변경
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message?: string;
@@ -196,7 +196,7 @@ export interface UserActivity {
   timestamp: string;
   metadata?: Record<string, any>;
   sessionId: string;
-  userId?: number;
+  user_id?: number;  // 🚨 userId → user_id로 변경
 }
 
 export interface PerformanceMetrics {

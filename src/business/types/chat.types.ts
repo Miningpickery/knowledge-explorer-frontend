@@ -8,7 +8,7 @@
 // ============================================================================
 
 export interface User {
-  readonly id: string;
+  readonly user_id: number;
   readonly email: string;
   readonly name: string;
   readonly profilePicture?: string;
@@ -45,7 +45,7 @@ export type MessageStatus =
   | 'streaming'; // 스트리밍 중
 
 export interface BaseMessage {
-  readonly id: string;
+  readonly message_id: string;
   readonly text: string;
   readonly sender: MessageSender;
   readonly timestamp: string;
@@ -74,7 +74,7 @@ export interface SystemMessage extends BaseMessage {
 export type ChatMessage = UserMessage | AssistantMessage | SystemMessage;
 
 export interface MessageAttachment {
-  readonly id: string;
+  readonly attachment_id: string;
   readonly type: 'image' | 'file' | 'audio';
   readonly url: string;
   readonly name: string;
@@ -83,7 +83,7 @@ export interface MessageAttachment {
 }
 
 export interface MessageSource {
-  readonly id: string;
+  readonly source_id: string;
   readonly title: string;
   readonly url: string;
   readonly snippet: string;
@@ -105,10 +105,10 @@ export interface ChatMetadata {
 }
 
 export interface ChatSession {
-  readonly id: string;
+  readonly chat_id: string;  // 백엔드 Key와 통일
   readonly title: string;
   readonly type: ChatType;
-  readonly userId?: string; // 익명 채팅의 경우 undefined
+  readonly userId?: number; // 익명 채팅의 경우 undefined
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly metadata: ChatMetadata;
@@ -229,13 +229,13 @@ export interface MessageSendOptions {
 
 export interface ChatCreateOptions {
   readonly title?: string;
-  readonly userId?: string;
+  readonly userId?: number;
   readonly type?: ChatType;
   readonly initialMessage?: string;
 }
 
 export interface ChatListOptions {
-  readonly userId?: string;
+  readonly userId?: number;
   readonly type?: ChatType;
   readonly includeArchived?: boolean;
   readonly sortBy?: 'createdAt' | 'updatedAt' | 'title';
@@ -285,7 +285,7 @@ export interface UIState {
 }
 
 export interface Notification {
-  readonly id: string;
+  readonly notification_id: string;
   readonly type: 'info' | 'success' | 'warning' | 'error';
   readonly title: string;
   readonly message: string;
@@ -296,7 +296,7 @@ export interface Notification {
 }
 
 export interface NotificationAction {
-  readonly id: string;
+  readonly action_id: string;
   readonly label: string;
   readonly action: () => void;
   readonly style?: 'primary' | 'secondary' | 'destructive';
@@ -342,14 +342,16 @@ export interface Environment {
 // ============================================================================
 
 export interface MockChatSession extends Partial<ChatSession> {
-  readonly id: string;
+  readonly chat_id: string;
   readonly title: string;
 }
 
-export interface MockMessage extends Partial<ChatMessage> {
-  readonly id: string;
+export interface MockMessage {
+  readonly message_id: string;
   readonly text: string;
   readonly sender: MessageSender;
+  readonly timestamp?: string;
+  readonly status?: MessageStatus;
 }
 
 export interface TestContext {

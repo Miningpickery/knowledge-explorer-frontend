@@ -14,7 +14,6 @@ interface AuthStoreState extends AuthState {
   
   // 🔧 Config
   rememberMe: boolean;
-  tokenExpiry: number | null;
   refreshToken: string | null;
   
   // 🎯 UI State
@@ -62,7 +61,7 @@ const initialState: AuthStoreState = {
   user: null,
   token: null,
   refreshToken: null,
-  tokenExpiry: null,
+  tokenExpiry: undefined,
   isLoading: false,
   isLoggingIn: false,
   isLoggingOut: false,
@@ -88,11 +87,18 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
         
         // Calculate token expiry (assuming JWT with standard exp claim)
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          state.tokenExpiry = payload.exp ? payload.exp * 1000 : null;
+          if (token && typeof token === 'string' && token.includes('.')) {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              // Base64 URL decode the payload
+              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const payload = JSON.parse(atob(base64));
+              state.tokenExpiry = payload.exp ? payload.exp * 1000 : undefined;
+            }
+          }
         } catch (error) {
           console.warn('Failed to parse token expiry:', error);
-          state.tokenExpiry = null;
+          state.tokenExpiry = undefined;
         }
         
         // Persist to storage
@@ -112,7 +118,7 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
         state.user = null;
         state.token = null;
         state.refreshToken = null;
-        state.tokenExpiry = null;
+        state.tokenExpiry = undefined;
         state.rememberMe = false;
         state.isLoggingOut = false;
         state.error = null;
@@ -150,7 +156,7 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
         
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          state.tokenExpiry = payload.exp ? payload.exp * 1000 : null;
+          state.tokenExpiry = payload.exp ? payload.exp * 1000 : undefined;
         } catch (error) {
           console.warn('Failed to parse token expiry:', error);
         }
@@ -165,7 +171,7 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
       clearTokens: () => set((state) => {
         state.token = null;
         state.refreshToken = null;
-        state.tokenExpiry = null;
+        state.tokenExpiry = undefined;
         
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
@@ -247,10 +253,10 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
       hydrate: () => {
         try {
           // Try localStorage first, then sessionStorage
-          let token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          let refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
-          let userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
-          let rememberMeStr = localStorage.getItem('rememberMe') || sessionStorage.getItem('rememberMe');
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+          const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+          const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+          const rememberMeStr = localStorage.getItem('rememberMe') || sessionStorage.getItem('rememberMe');
           
           if (token && userStr) {
             const user: User = JSON.parse(userStr);
@@ -263,13 +269,20 @@ export const useAuthStore = create<AuthStoreState & AuthActions>()(
               state.refreshToken = refreshToken;
               state.rememberMe = rememberMe;
               
-              // Parse token expiry
-              try {
-                const payload = JSON.parse(atob(token!.split('.')[1]));
-                state.tokenExpiry = payload.exp ? payload.exp * 1000 : null;
-              } catch (error) {
-                console.warn('Failed to parse token expiry during hydration:', error);
-              }
+                             // Parse token expiry
+               try {
+                 if (token && typeof token === 'string' && token.includes('.')) {
+                   const parts = token.split('.');
+                   if (parts.length === 3) {
+                     // Base64 URL decode the payload
+                     const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                     const payload = JSON.parse(atob(base64));
+                     state.tokenExpiry = payload.exp ? payload.exp * 1000 : undefined;
+                   }
+                 }
+               } catch (error) {
+                 console.warn('Failed to parse token expiry during hydration:', error);
+               }
             });
             
             console.log('✅ 인증 상태 복원 완료:', user.name);

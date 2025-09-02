@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from './ui/Button';
+import { API_CONFIG } from '../src/utils/apiConfig';
 
 interface LoginButtonProps {
   onLoginSuccess?: (user: any) => void;
@@ -9,13 +10,20 @@ interface LoginButtonProps {
 const LoginButton: React.FC<LoginButtonProps> = ({ onLoginSuccess, onLoginError }) => {
   const handleGoogleLogin = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const googleAuthUrl = `${baseUrl}/api/auth/google`;
+      console.log('🔐 Google 로그인 시작...');
       
-      console.log('🔐 Google OAuth 시도:', googleAuthUrl);
+      const googleAuthUrl = API_CONFIG.getApiUrl('/api/auth/google');
+      console.log('🔐 Google OAuth URL:', googleAuthUrl);
       
       // 먼저 OAuth 설정 상태 확인
+      console.log('🔐 OAuth 설정 확인 중...');
       const response = await fetch(googleAuthUrl, { method: 'HEAD' });
+      
+      console.log('🔐 OAuth 설정 응답:', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
+      });
       
       if (!response.ok && response.status === 500) {
         alert('Google OAuth 설정이 완료되지 않았습니다.\n\n' + 
@@ -31,10 +39,13 @@ const LoginButton: React.FC<LoginButtonProps> = ({ onLoginSuccess, onLoginError 
       }
       
       // OAuth 로그인 진행 (직접 리다이렉션)
+      console.log('🔐 Google OAuth 리다이렉션 시작...');
+      console.log('🔐 리다이렉션 URL:', googleAuthUrl);
+      
       // CORS 오류를 피하기 위해 현재 창에서 리다이렉션
       window.location.href = googleAuthUrl;
     } catch (error) {
-      console.error('Google 로그인 오류:', error);
+      console.error('🔐 Google 로그인 오류:', error);
       alert('Google 로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };

@@ -6,12 +6,13 @@ const express = require('express');
 const router = express.Router();
 const memoryService = require('../services/memoryService');
 const { authenticateToken } = require('../middleware/auth');
+const { validateKey } = require('../middleware/validation');
 
 // 사용자의 모든 메모리 조회
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { limit = 50 } = req.query;
-    const memories = await memoryService.getUserMemories(req.user.userId, parseInt(limit));
+    const memories = await memoryService.getUserMemories(req.user.user_id, parseInt(limit));
     
     res.json({
       success: true,
@@ -31,10 +32,10 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // 특정 메모리 조회
-router.get('/:memoryId', authenticateToken, async (req, res) => {
+router.get('/:memoryId', validateKey('memoryId', 'user_memories'), authenticateToken, async (req, res) => {
   try {
     const { memoryId } = req.params;
-    const memory = await memoryService.getMemoryById(memoryId, req.user.userId);
+    const memory = await memoryService.getMemoryById(memoryId, req.user.user_id);
     
     if (!memory) {
       return res.status(404).json({
@@ -89,7 +90,7 @@ router.post('/', authenticateToken, async (req, res) => {
       chat_id
     };
     
-    const memory = await memoryService.createMemory(req.user.userId, memoryData);
+    const memory = await memoryService.createMemory(req.user.user_id, memoryData);
     
     res.status(201).json({
       success: true,
@@ -121,7 +122,7 @@ router.put('/:memoryId', authenticateToken, async (req, res) => {
     if (importance !== undefined) updates.importance = importance;
     if (tags) updates.tags = tags;
     
-    const memory = await memoryService.updateMemory(memoryId, req.user.userId, updates);
+    const memory = await memoryService.updateMemory(memoryId, req.user.user_id, updates);
     
     res.json({
       success: true,
@@ -145,7 +146,7 @@ router.put('/:memoryId', authenticateToken, async (req, res) => {
 router.delete('/:memoryId', authenticateToken, async (req, res) => {
   try {
     const { memoryId } = req.params;
-    await memoryService.deleteMemory(memoryId, req.user.userId);
+    await memoryService.deleteMemory(memoryId, req.user.user_id);
     
     res.json({
       success: true,
@@ -167,7 +168,7 @@ router.delete('/:memoryId', authenticateToken, async (req, res) => {
 // 메모리 통계 조회
 router.get('/stats/summary', authenticateToken, async (req, res) => {
   try {
-    const stats = await memoryService.getMemoryStats(req.user.userId);
+    const stats = await memoryService.getMemoryStats(req.user.user_id);
     
     res.json({
       success: true,
@@ -203,7 +204,7 @@ router.get('/search/tags', authenticateToken, async (req, res) => {
     }
     
     const tagArray = Array.isArray(tags) ? tags : [tags];
-    const memories = await memoryService.searchMemoriesByTags(req.user.userId, tagArray);
+    const memories = await memoryService.searchMemoriesByTags(req.user.user_id, tagArray);
     
     res.json({
       success: true,
@@ -240,7 +241,7 @@ router.post('/extract/:chatId', authenticateToken, async (req, res) => {
     }
     
     const memory = await memoryService.extractAndSaveMemory(
-      req.user.userId, 
+      req.user.user_id, 
       chatId, 
       conversationContext
     );

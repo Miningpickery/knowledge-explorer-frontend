@@ -30,12 +30,12 @@ function performanceTrackingMiddleware(req, res, next) {
     const duration = Number(endTime - startTime) / 1000000; // ms로 변환
     
     // 성능 메트릭 기록
-    performanceMetrics.recordMetric('api_response_time', duration, {
-      method: req.method,
-      route: req.route?.path || req.url,
-      statusCode: res.statusCode,
-      userId: req.user?.id,
-    });
+         performanceMetrics.recordMetric('api_response_time', duration, {
+       method: req.method,
+       route: req.route?.path || req.url,
+       statusCode: res.statusCode,
+       userId: req.user?.user_id,
+     });
     
     // HTTP 상태 코드별 메트릭
     performanceMetrics.recordMetric(`http_${res.statusCode}`, 1, {
@@ -51,15 +51,15 @@ function performanceTrackingMiddleware(req, res, next) {
     });
     
     // 요청 완료 로깅
-    logger.info('Request completed', {
-      type: 'request_complete',
-      method: req.method,
-      url: req.url,
-      statusCode: res.statusCode,
-      duration: `${duration.toFixed(2)}ms`,
-      contentLength: res.get('content-length'),
-      userId: req.user?.id,
-    });
+         logger.info('Request completed', {
+       type: 'request_complete',
+       method: req.method,
+       url: req.url,
+       statusCode: res.statusCode,
+       duration: `${duration.toFixed(2)}ms`,
+       contentLength: res.get('content-length'),
+       userId: req.user?.user_id,
+     });
     
     // 성능 임계치 알림
     if (duration > 3000) { // 3초 이상
@@ -185,15 +185,15 @@ function errorTrackingMiddleware(err, req, res, next) {
     statusCode: err.statusCode || 500,
   });
   
-  // 에러 로깅
-  logger.error('API Error', err, {
-    type: 'api_error',
-    method: req.method,
-    url: req.url,
-    statusCode: err.statusCode || 500,
-    userId: req.user?.id,
-    stack: err.stack,
-  });
+     // 에러 로깅
+   logger.error('API Error', err, {
+     type: 'api_error',
+     method: req.method,
+     url: req.url,
+     statusCode: err.statusCode || 500,
+     userId: req.user?.user_id,
+     stack: err.stack,
+   });
   
   // 치명적 에러 알림
   if (!err.statusCode || err.statusCode >= 500) {
@@ -216,7 +216,7 @@ const activeUsers = new Set();
 const userSessions = new Map();
 
 function userActivityTrackingMiddleware(req, res, next) {
-  const userId = req.user?.id || req.ip; // 인증된 사용자 또는 IP 기반
+  const userId = req.user?.user_id || req.ip; // 인증된 사용자 또는 IP 기반
   const sessionId = req.sessionID || req.headers['x-session-id'];
   
   // 활성 사용자 추가
@@ -234,7 +234,7 @@ function userActivityTrackingMiddleware(req, res, next) {
   
   // 사용자 활동 로깅
   if (req.user) {
-    logger.userActivity(req.user.id, `${req.method} ${req.url}`, {
+          logger.userActivity(req.user.user_id, `${req.method} ${req.url}`, {
       sessionId,
       ip: req.ip,
       userAgent: req.headers['user-agent'],

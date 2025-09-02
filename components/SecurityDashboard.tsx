@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 interface SecurityThreat {
-  id: number;
+  threat_id: number;
   threat_type: string;
   threat_level: string;
   question_preview: string;
@@ -213,7 +213,7 @@ const SecurityDashboard: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {dashboardData.recentThreats.map((threat) => (
-                  <tr key={threat.id}>
+                  <tr key={threat.threat_id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(threat.timestamp).toLocaleString('ko-KR')}
                     </td>
@@ -240,7 +240,7 @@ const SecurityDashboard: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {!threat.handled && (
                         <button
-                          onClick={() => handleThreat(threat.id)}
+                          onClick={() => handleThreat(threat.threat_id)}
                           className="text-indigo-600 hover:text-indigo-900"
                         >
                           처리 완료

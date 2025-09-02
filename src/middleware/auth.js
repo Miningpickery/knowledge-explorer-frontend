@@ -51,7 +51,12 @@ async function authenticateToken(req, res, next) {
     });
 
     // 사용자 정보를 요청 객체에 추가
-    req.user = decoded;
+    req.user = {
+      user_id: decoded.userId, // 데이터베이스의 user_id 컬럼 사용
+      email: decoded.email,
+      name: decoded.name,
+      googleId: decoded.googleId
+    };
     next();
   } catch (error) {
     console.error('❌ 토큰 검증 중 오류:', error);
@@ -66,34 +71,34 @@ async function authenticateToken(req, res, next) {
   }
 }
 
-// 선택적 인증 미들웨어 (토큰이 있으면 검증, 없으면 기본 사용자 사용)
+// 선택적 인증 미들웨어 (토큰이 있으면 검증, 없으면 익명 사용자로 처리)
 async function optionalAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    // 토큰이 없으면 기본 사용자 ID 3 사용
-    req.user = { userId: 3, email: 'default@example.com', name: '기본 사용자' };
+    // 토큰이 없으면 익명 사용자로 처리 (userId: null)
+    req.user = null;
     return next();
   }
 
   try {
     const decoded = await verifyToken(token);
     if (!decoded) {
-      // 토큰이 유효하지 않으면 기본 사용자 사용
-      req.user = { userId: 3, email: 'default@example.com', name: '기본 사용자' };
+      // 토큰이 유효하지 않으면 익명 사용자로 처리
+      req.user = null;
       return next();
     }
 
     // 토큰이 유효하면 사용자 정보를 DB에서 가져와서 추가
     const user = await getUserById(decoded.userId);
     if (!user || !user.is_active) {
-      req.user = { userId: 3, email: 'default@example.com', name: '기본 사용자' };
+      req.user = null;
       return next();
     }
 
-    req.user = {
-      userId: user.id,
+        req.user = {
+              user_id: user.user_id, // 데이터베이스의 user_id 컬럼 사용
       email: user.email,
       name: user.name,
       googleId: user.google_id,
@@ -102,8 +107,8 @@ async function optionalAuth(req, res, next) {
     next();
   } catch (error) {
     console.error('❌ 선택적 인증 실패:', error);
-    // 오류가 발생해도 기본 사용자로 진행
-    req.user = { userId: 3, email: 'default@example.com', name: '기본 사용자' };
+    // 오류가 발생해도 익명 사용자로 진행
+    req.user = null;
     next();
   }
 }

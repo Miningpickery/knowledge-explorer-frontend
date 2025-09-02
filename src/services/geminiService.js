@@ -26,7 +26,7 @@ const mapMessagesToContent = (messages) => {
   const history = [];
   const filteredMessages = messages.filter(
     msg => (msg.sender === MessageSender.USER || msg.sender === MessageSender.MODEL) &&
-           msg.id !== 'initial-welcome' &&
+           msg.message_id !== 'initial-welcome' &&
            !msg.isLoading &&
            msg.text.trim() !== ''
   );
@@ -179,9 +179,9 @@ const sendMessage = async (chat, prompt) => {
     const uniqueSources = Array.from(new Map(sources.map(item => [item.uri, item])).values());
       
     return {
-      paragraphs: paragraphs,
-      followUpMessage: followUpMessage,
-      followUpQuestions: followUpQuestions,
+      paragraphs,
+      followUpMessage,
+      followUpQuestions,
       sources: uniqueSources
     };
 

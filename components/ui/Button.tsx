@@ -18,11 +18,13 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  // props에서 disabled 제거하여 중복 방지
+  const { disabled: propsDisabled, ...restProps } = props;
   return (
     <button
       className={cn(
-        // 🎯 기본 스타일 (디자인 가이드 준수)
-        "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-200",
+        // 🎯 기본 스타일 (모노 스타일 일관성)
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
         // 텍스트 최적화
@@ -40,12 +42,17 @@ export function Button({
           "h-12 px-6 text-base min-w-[3rem] sm:h-11 sm:px-5": size === 'lg',
         },
         
-        // 🎨 변형별 스타일 (시맨틱 색상 토큰 사용)
+        // 🎨 변형별 스타일 (모노 스타일 색상 시스템)
         {
-          "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95": variant === 'primary',
+          // 주요 액션 - 진한 네이비 배경, 흰색 텍스트
+          "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/95 shadow-soft": variant === 'primary',
+          // 보조 액션 - 연한 네이비 배경, 진한 네이비 텍스트
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/90": variant === 'secondary',
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent/90": variant === 'outline',
+          // 테두리 버튼 - 흰색 배경, 진한 네이비 테두리
+          "border border-border bg-background hover:bg-accent hover:text-accent-foreground active:bg-accent/90": variant === 'outline',
+          // 투명 버튼 - 호버 시에만 배경색
           "hover:bg-accent hover:text-accent-foreground active:bg-accent/90": variant === 'ghost',
+          // 위험 액션 - 레드 배경, 흰색 텍스트
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/95": variant === 'destructive',
         },
         
@@ -54,7 +61,7 @@ export function Button({
       disabled={disabled || loading}
       // 접근성 속성 추가
       aria-disabled={disabled || loading}
-      {...props}
+      {...restProps}
     >
       {loading && (
         <svg

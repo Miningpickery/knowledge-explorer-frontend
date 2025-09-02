@@ -430,7 +430,11 @@ router.get('/analytics/realtime', async (req, res) => {
       timestamp: new Date().toISOString(),
     };
     
-    res.json(realtimeData);
+    res.json({
+      success: true,
+      data: realtimeData,
+      timestamp: new Date().toISOString()
+    });
     
   } catch (error) {
     logger.error('Realtime data fetch failed', error);

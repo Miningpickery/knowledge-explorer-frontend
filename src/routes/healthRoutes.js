@@ -3,6 +3,13 @@
 
 const express = require('express');
 const { Pool } = require('pg');
+const { 
+  checkDatabaseStatus,
+  getSampleUsers,
+  getSampleChatSessions,
+  getSampleMessages,
+  getSampleMemories
+} = require('../services/chatHistoryService');
 
 const router = express.Router();
 
@@ -271,6 +278,131 @@ router.get('/metrics', (req, res) => {
     res.status(500).json({
       error: 'Failed to collect metrics',
       message: error.message
+    });
+  }
+});
+
+// 데이터베이스 상태 점검
+router.get('/database/status', async (req, res) => {
+  try {
+    console.log('🔍 데이터베이스 상태 점검 요청');
+    
+    const status = await checkDatabaseStatus();
+    
+    res.json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ 데이터베이스 상태 점검 실패:', error);
+    res.status(500).json({
+      error: {
+        code: 'DATABASE_STATUS_ERROR',
+        message: '데이터베이스 상태 점검에 실패했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 사용자 샘플 데이터 조회
+router.get('/database/users/sample', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const users = await getSampleUsers(limit);
+    
+    res.json({
+      success: true,
+      data: users,
+      count: users.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ 사용자 샘플 데이터 조회 실패:', error);
+    res.status(500).json({
+      error: {
+        code: 'USERS_SAMPLE_ERROR',
+        message: '사용자 샘플 데이터 조회에 실패했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 채팅 세션 샘플 데이터 조회
+router.get('/database/chats/sample', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const chats = await getSampleChatSessions(limit);
+    
+    res.json({
+      success: true,
+      data: chats,
+      count: chats.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ 채팅 세션 샘플 데이터 조회 실패:', error);
+    res.status(500).json({
+      error: {
+        code: 'CHATS_SAMPLE_ERROR',
+        message: '채팅 세션 샘플 데이터 조회에 실패했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 메시지 샘플 데이터 조회
+router.get('/database/messages/sample', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const messages = await getSampleMessages(limit);
+    
+    res.json({
+      success: true,
+      data: messages,
+      count: messages.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ 메시지 샘플 데이터 조회 실패:', error);
+    res.status(500).json({
+      error: {
+        code: 'MESSAGES_SAMPLE_ERROR',
+        message: '메시지 샘플 데이터 조회에 실패했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// 메모리 샘플 데이터 조회
+router.get('/database/memories/sample', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const memories = await getSampleMemories(limit);
+    
+    res.json({
+      success: true,
+      data: memories,
+      count: memories.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ 메모리 샘플 데이터 조회 실패:', error);
+    res.status(500).json({
+      error: {
+        code: 'MEMORIES_SAMPLE_ERROR',
+        message: '메모리 샘플 데이터 조회에 실패했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
     });
   }
 });

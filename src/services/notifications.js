@@ -1,7 +1,12 @@
 // 🔔 Real-time Notification System
 // 상용화 수준의 실시간 알림 및 경고 시스템
 
-const nodemailer = require('nodemailer');
+let nodemailer = null;
+try {
+  nodemailer = require('nodemailer');
+} catch (e) {
+  console.log('⚠️ nodemailer not installed - email notifications disabled');
+}
 const { logger } = require('./monitoring');
 
 /**
@@ -14,8 +19,8 @@ class EmailNotificationService {
   }
 
   initializeTransporter() {
-    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-      this.transporter = nodemailer.createTransporter({
+    if (nodemailer && process.env.SMTP_HOST && process.env.SMTP_USER) {
+      this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT) || 587,
         secure: false,

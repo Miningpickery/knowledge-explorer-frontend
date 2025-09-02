@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface User {
-  id: number;
+  user_id: number;  // 🚨 id → user_id로 변경
   name: string;
   email: string;
   username?: string;
@@ -10,11 +10,12 @@ interface User {
 }
 
 interface Memory {
-  id: number;
+  memory_id: number;  // 🚨 id → memory_id로 변경
   title: string;
   content: string;
   importance: number;
   created_at: string;
+  tags?: string[];
 }
 
 interface UserProfileProps {
@@ -28,6 +29,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
   const [activeTab, setActiveTab] = useState<'profile' | 'memories'>('profile');
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loadingMemories, setLoadingMemories] = useState(false);
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
+  const [showMemoryForm, setShowMemoryForm] = useState(false);
+  const [memoryFormData, setMemoryFormData] = useState({
+    title: '',
+    content: '',
+    importance: 3,
+    tags: ''
+  });
   const [formData, setFormData] = useState({
     name: user.name || '',
     username: user.username || ''
@@ -39,13 +48,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
       setFormData(prev => ({ ...prev, name: user.name }));
     }
     if (user.username && !formData.username) {
-      setFormData(prev => ({ ...prev, username: user.username }));
+      setFormData(prev => ({ ...prev, username: user.username || '' }));
     }
-  }, [user]);
+  }, [user, formData.name, formData.username]);
 
   // 메모리 로드 함수
-  const loadMemories = async () => {
-    if (activeTab === 'memories' && memories.length === 0) {
+  const loadMemories = useCallback(async () => {
+    if (activeTab === 'memories' && !loadingMemories) {
       setLoadingMemories(true);
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories`, {
@@ -64,12 +73,100 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
         setLoadingMemories(false);
       }
     }
+  }, [activeTab]); // 🚨 loadingMemories 의존성 제거
+
+  // 메모리 생성/수정 함수
+  const handleSaveMemory = async () => {
+    try {
+      const method = editingMemory ? 'PUT' : 'POST';
+      const url = editingMemory 
+        ? `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories/${editingMemory.memory_id}`
+        : `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          ...memoryFormData,
+          tags: memoryFormData.tags ? memoryFormData.tags.split(',').map(t => t.trim()) : []
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.success) {
+          setShowMemoryForm(false);
+          setEditingMemory(null);
+          setMemoryFormData({ title: '', content: '', importance: 3, tags: '' });
+          loadMemories(); // 새로고침
+          
+          console.log(`✅ 메모리 ${editingMemory ? '수정' : '생성'} 완료`);
+        } else {
+          throw new Error(result.error?.message || '메모리 저장 실패');
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}: 메모리 저장 실패`);
+      }
+    } catch (error) {
+      console.error('❌ 메모리 저장 실패:', error);
+      alert(`메모리 저장에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
+  };
+
+  // 메모리 수정 시작
+  const handleEditMemory = (memory: Memory) => {
+    setEditingMemory(memory);
+    setMemoryFormData({
+      title: memory.title,
+      content: memory.content,
+      importance: memory.importance,
+      tags: Array.isArray(memory.tags) ? memory.tags.join(', ') : ''
+    });
+    setShowMemoryForm(true);
+  };
+
+  // 메모리 삭제
+  const handleDeleteMemory = async (memoryId: number) => {
+    if (!confirm('정말 이 메모리를 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories/${memoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.success) {
+          loadMemories(); // 새로고침
+          console.log('✅ 메모리 삭제 완료');
+        } else {
+          throw new Error(result.error?.message || '메모리 삭제 실패');
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}: 메모리 삭제 실패`);
+      }
+    } catch (error) {
+      console.error('❌ 메모리 삭제 실패:', error);
+      alert(`메모리 삭제에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    }
   };
 
   // 탭 변경 시 메모리 로드
   useEffect(() => {
-    loadMemories();
-  }, [activeTab]);
+    if (activeTab === 'memories') {
+      loadMemories();
+    }
+  }, [activeTab, loadMemories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,55 +209,55 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-md mx-auto">
+    <div className="bg-white">
+      <div className="w-full">
         {/* 헤더 */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">프로필</h1>
-          <p className="text-gray-600">개인정보를 관리하세요</p>
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-semibold text-gray-900 mb-1">프로필</h1>
+          <p className="text-sm text-gray-600">개인정보를 관리하세요</p>
         </div>
 
-                 {/* 탭 네비게이션 */}
-         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-           <div className="flex">
-             <button
-               onClick={() => setActiveTab('profile')}
-               className={`flex-1 py-4 px-6 text-sm font-medium transition-all duration-200 relative ${
-                 activeTab === 'profile'
-                   ? 'text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50'
-                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-               }`}
-             >
-               <div className="flex items-center justify-center space-x-2">
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                 </svg>
-                 <span>개인정보</span>
-               </div>
-               {activeTab === 'profile' && (
-                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-               )}
-             </button>
-             <button
-               onClick={() => setActiveTab('memories')}
-               className={`flex-1 py-4 px-6 text-sm font-medium transition-all duration-200 relative ${
-                 activeTab === 'memories'
-                   ? 'text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50'
-                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-               }`}
-             >
-               <div className="flex items-center justify-center space-x-2">
-                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                 </svg>
-                 <span>메모리 관리</span>
-               </div>
-               {activeTab === 'memories' && (
-                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-               )}
-             </button>
-           </div>
-         </div>
+                         {/* 탭 네비게이션 */}
+        <div className="bg-gray-50 rounded-xl overflow-hidden mb-4">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-all duration-200 relative ${
+                activeTab === 'profile'
+                  ? 'text-blue-600 bg-white'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>개인정보</span>
+              </div>
+              {activeTab === 'profile' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('memories')}
+              className={`flex-1 py-3 px-4 text-sm font-medium transition-all duration-200 relative ${
+                activeTab === 'memories'
+                  ? 'text-blue-600 bg-white'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>메모리 관리</span>
+              </div>
+              {activeTab === 'memories' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500"></div>
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* 프로필 카드 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -322,7 +419,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
                  <p className="text-sm text-gray-500">채팅에서 저장된 중요한 정보들</p>
                </div>
              </div>
-             <button className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105">
+             <button 
+              onClick={() => setShowMemoryForm(true)}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+            >
                <div className="flex items-center space-x-2">
                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -357,7 +457,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
            ) : (
              <div className="space-y-4">
                {memories.map((memory) => (
-                 <div key={memory.id} className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-200 transition-all duration-200">
+                 <div key={memory.memory_id} className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-200 transition-all duration-200">
                    <div className="flex justify-between items-start mb-3">
                      <div className="flex items-center space-x-3">
                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center">
@@ -368,16 +468,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
                        <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{memory.title}</h4>
                      </div>
                      <div className="flex space-x-2 text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors">
-                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                         </svg>
-                       </button>
-                       <button className="text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors">
-                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                         </svg>
-                       </button>
+                                             <button 
+                        onClick={() => handleEditMemory(memory)}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
+                        title="수정"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteMemory(memory.memory_id)}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                        title="삭제"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                      </div>
                    </div>
                    
@@ -429,6 +537,102 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
           </p>
         </div>
       </div>
+
+      {/* 메모리 생성/수정 폼 모달 */}
+      {showMemoryForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {editingMemory ? '메모리 수정' : '새 메모리 생성'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowMemoryForm(false);
+                    setEditingMemory(null);
+                    setMemoryFormData({ title: '', content: '', importance: 3, tags: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                  <input
+                    type="text"
+                    value={memoryFormData.title}
+                    onChange={(e) => setMemoryFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="메모리 제목을 입력하세요"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+                  <textarea
+                    value={memoryFormData.content}
+                    onChange={(e) => setMemoryFormData(prev => ({ ...prev, content: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="메모리 내용을 입력하세요"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">중요도 (1-5)</label>
+                  <select
+                    value={memoryFormData.importance}
+                    onChange={(e) => setMemoryFormData(prev => ({ ...prev, importance: parseInt(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value={1}>1 - 낮음</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3 - 보통</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5 - 높음</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">태그 (쉼표로 구분)</label>
+                  <input
+                    type="text"
+                    value={memoryFormData.tags}
+                    onChange={(e) => setMemoryFormData(prev => ({ ...prev, tags: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="태그1, 태그2, 태그3"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowMemoryForm(false);
+                    setEditingMemory(null);
+                    setMemoryFormData({ title: '', content: '', importance: 3, tags: '' });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveMemory}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors"
+                >
+                  {editingMemory ? '수정' : '생성'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

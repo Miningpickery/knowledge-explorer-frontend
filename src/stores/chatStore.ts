@@ -12,7 +12,7 @@ enum MessageSender {
 }
 
 interface ChatMessage {
-  id: string;
+  message_id: string;  // 🚨 id → message_id로 변경
   text: string;
   sender: MessageSender;
   timestamp: string;
@@ -25,10 +25,9 @@ interface ChatMessage {
 }
 
 interface ChatSession {
-  id: string;
+  chat_id: string;  // 백엔드 Key와 통일
   user_id?: number;
   title: string;
-  status: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -126,14 +125,14 @@ export const useChatStore = create<ChatState & ChatActions>()(
       }),
 
       updateChat: (chatId, updates) => set((state) => {
-        const index = state.chats.findIndex(chat => chat.id === chatId);
+        const index = state.chats.findIndex(chat => chat.chat_id === chatId);
         if (index !== -1) {
           Object.assign(state.chats[index], updates);
         }
       }),
 
       removeChat: (chatId) => set((state) => {
-        state.chats = state.chats.filter(chat => chat.id !== chatId);
+        state.chats = state.chats.filter(chat => chat.chat_id !== chatId);
         if (state.activeChatId === chatId) {
           state.activeChatId = null;
           state.messages = [];
@@ -142,16 +141,17 @@ export const useChatStore = create<ChatState & ChatActions>()(
 
       // 🎯 Active Chat
       setActiveChatId: (chatId) => set((state) => {
-        state.activeChatId = chatId;
-        // Clear messages when switching chats
-        if (chatId !== state.activeChatId) {
+        // 실제로 다른 채팅방으로 바뀔 때만 메시지 초기화
+        if (state.activeChatId !== chatId) {
           state.messages = [];
+          console.log('🔄 채팅방 변경 - 메시지 초기화:', { from: state.activeChatId, to: chatId });
         }
+        state.activeChatId = chatId;
       }),
 
       getActiveChat: () => {
         const { chats, activeChatId } = get();
-        return chats.find(chat => chat.id === activeChatId) || null;
+        return chats.find(chat => chat.chat_id === activeChatId) || null;
       },
 
       // 💬 Messages
@@ -164,14 +164,14 @@ export const useChatStore = create<ChatState & ChatActions>()(
       }),
 
       updateMessage: (messageId, updates) => set((state) => {
-        const index = state.messages.findIndex(msg => msg.id === messageId);
+        const index = state.messages.findIndex(msg => msg.message_id === messageId);
         if (index !== -1) {
           Object.assign(state.messages[index], updates);
         }
       }),
 
       removeMessage: (messageId) => set((state) => {
-        state.messages = state.messages.filter(msg => msg.id !== messageId);
+        state.messages = state.messages.filter(msg => msg.message_id !== messageId);
       }),
 
       clearMessages: () => set((state) => {
@@ -264,12 +264,12 @@ export const useChatStore = create<ChatState & ChatActions>()(
       // 📊 Advanced Features
       getChatById: (chatId) => {
         const { chats } = get();
-        return chats.find(chat => chat.id === chatId) || null;
+        return chats.find(chat => chat.chat_id === chatId) || null;
       },
 
       getMessageById: (messageId) => {
         const { messages } = get();
-        return messages.find(msg => msg.id === messageId) || null;
+        return messages.find(msg => msg.message_id === messageId) || null;
       },
 
       getRecentChats: (limit = 10) => {
@@ -297,7 +297,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
 export const useChats = () => useChatStore(state => state.chats);
 export const useActiveChat = () => useChatStore(state => {
   const { chats, activeChatId } = state;
-  return chats.find(chat => chat.id === activeChatId) || null;
+  return chats.find(chat => chat.chat_id === activeChatId) || null;
 });
 export const useMessages = () => useChatStore(state => state.messages);
 export const useChatLoading = () => useChatStore(state => ({
@@ -308,13 +308,13 @@ export const useChatLoading = () => useChatStore(state => ({
 
 // 📊 Selectors for optimized re-renders
 export const selectChatById = (chatId: string) => (state: ChatState) => 
-  state.chats.find(chat => chat.id === chatId);
+  state.chats.find(chat => chat.chat_id === chatId);
 
 export const selectMessageById = (messageId: string) => (state: ChatState) => 
-  state.messages.find(msg => msg.id === messageId);
+  state.messages.find(msg => msg.message_id === messageId);
 
 export const selectActiveChatMessages = (state: ChatState) => {
-  const activeChat = state.chats.find(chat => chat.id === state.activeChatId);
+  const activeChat = state.chats.find(chat => chat.chat_id === state.activeChatId);
   return activeChat?.messages || state.messages;
 };
 

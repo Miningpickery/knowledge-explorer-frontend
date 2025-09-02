@@ -63,7 +63,7 @@ async function migrateDatabase() {
       console.log('🏗️  Creating new users table...');
       await pool.query(`
         CREATE TABLE users (
-          id SERIAL PRIMARY KEY,
+          user_id SERIAL PRIMARY KEY,
           email VARCHAR(255) UNIQUE NOT NULL,
           name VARCHAR(100) NOT NULL,
           company VARCHAR(100),
@@ -85,11 +85,82 @@ async function migrateDatabase() {
     try {
       await pool.query(`
         ALTER TABLE chat_sessions 
-        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE
       `);
       console.log('✅ Added user_id column to chat_sessions');
     } catch (error) {
       console.log('ℹ️  user_id column might already exist');
+    }
+
+    // messages 테이블의 user_id 외래키 제약조건을 CASCADE로 변경
+    try {
+      // 기존 제약조건 확인
+      const constraintQuery = `
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'messages' 
+        AND constraint_type = 'FOREIGN KEY' 
+        AND constraint_name LIKE '%user_id%'
+      `;
+      const constraintResult = await pool.query(constraintQuery);
+      
+      if (constraintResult.rows.length > 0) {
+        // 기존 제약조건 삭제
+        for (const row of constraintResult.rows) {
+          await pool.query(`ALTER TABLE messages DROP CONSTRAINT IF EXISTS ${row.constraint_name}`);
+          console.log(`✅ Dropped existing constraint: ${row.constraint_name}`);
+        }
+      }
+      
+      // 새로운 CASCADE 제약조건 추가
+      await pool.query(`
+        ALTER TABLE messages 
+        ADD CONSTRAINT fk_messages_user_id 
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+      `);
+      console.log('✅ Added CASCADE constraint for messages.user_id');
+    } catch (error) {
+      console.log('⚠️  Could not update messages.user_id constraint:', error.message);
+    }
+
+    // user_memories 테이블이 있다면 user_id 외래키 제약조건 확인
+    try {
+      const memoriesTableExists = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'user_memories'
+        )
+      `);
+      
+      if (memoriesTableExists.rows[0].exists) {
+        // user_memories 테이블의 user_id 외래키 제약조건을 CASCADE로 변경
+        const constraintQuery = `
+          SELECT constraint_name 
+          FROM information_schema.table_constraints 
+          WHERE table_name = 'user_memories' 
+          AND constraint_type = 'FOREIGN KEY' 
+          AND constraint_name LIKE '%user_id%'
+        `;
+        const constraintResult = await pool.query(constraintQuery);
+        
+        if (constraintResult.rows.length > 0) {
+          // 기존 제약조건 삭제
+          for (const row of constraintResult.rows) {
+            await pool.query(`ALTER TABLE user_memories DROP CONSTRAINT IF EXISTS ${row.constraint_name}`);
+            console.log(`✅ Dropped existing constraint: ${row.constraint_name}`);
+          }
+        }
+        
+        // 새로운 CASCADE 제약조건 추가
+        await pool.query(`
+          ALTER TABLE user_memories 
+          ADD CONSTRAINT fk_user_memories_user_id 
+          FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        `);
+        console.log('✅ Added CASCADE constraint for user_memories.user_id');
+      }
+    } catch (error) {
+      console.log('⚠️  Could not update user_memories.user_id constraint:', error.message);
     }
     
     // 기본 사용자 생성 (기존 데이터를 위한)
@@ -97,18 +168,18 @@ async function migrateDatabase() {
       INSERT INTO users (email, name, company, role, username)
       VALUES ('default@example.com', '기본 사용자', '기본 회사', 'user', 'default_user')
       ON CONFLICT (email) DO NOTHING
-      RETURNING id
+      RETURNING user_id
     `);
     
     let defaultUserId;
     if (defaultUserResult.rows.length > 0) {
-      defaultUserId = defaultUserResult.rows[0].id;
+      defaultUserId = defaultUserResult.rows[0].user_id;
       console.log(`✅ Created default user with ID: ${defaultUserId}`);
     } else {
       const existingUser = await pool.query(`
-        SELECT id FROM users WHERE email = 'default@example.com'
+        SELECT user_id FROM users WHERE email = 'default@example.com'
       `);
-      defaultUserId = existingUser.rows[0].id;
+      defaultUserId = existingUser.rows[0].user_id;
       console.log(`✅ Using existing default user with ID: ${defaultUserId}`);
     }
     
@@ -131,18 +202,75 @@ async function migrateDatabase() {
     
     console.log('✅ Indexes created/updated');
     
+    // 💬 채팅 세션 테이블 생성
+    console.log('💬 Creating chat_sessions table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        chat_id VARCHAR(50) PRIMARY KEY,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL DEFAULT '새 대화',
+        context TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP NULL
+      )
+    `);
+    
+    // 채팅 세션 인덱스 생성
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated_at ON chat_sessions(updated_at DESC)
+    `);
+    
+    console.log('✅ Chat sessions table and indexes created');
+    
+    // 💭 메시지 테이블 생성
+    console.log('💭 Creating messages table...');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        message_id SERIAL PRIMARY KEY,
+        chat_id VARCHAR(50) REFERENCES chat_sessions(chat_id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+        text TEXT NOT NULL,
+        sender VARCHAR(10) NOT NULL CHECK (sender IN ('user', 'model')),
+        sources JSONB DEFAULT '[]',
+        follow_up_questions JSONB DEFAULT '[]',
+        context TEXT,
+        status VARCHAR(20) DEFAULT 'sent',
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 메시지 인덱스 생성
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp ASC)
+    `);
+    
+    console.log('✅ Messages table and indexes created');
+    
     // 🧠 사용자 장기 메모리 테이블 생성
     console.log('🧠 Creating user_memories table...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_memories (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        memory_id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
         memory_type VARCHAR(50) NOT NULL DEFAULT 'conversation',
         title VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
         importance INTEGER DEFAULT 1 CHECK (importance >= 1 AND importance <= 5),
         tags TEXT[],
-        chat_id VARCHAR(100),
+        chat_id VARCHAR(50) REFERENCES chat_sessions(chat_id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         deleted_at TIMESTAMP NULL
@@ -172,8 +300,8 @@ async function migrateDatabase() {
     console.log('🔐 Creating user_sessions table...');
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        session_id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
         token_hash VARCHAR(255) NOT NULL,
         expires_at TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

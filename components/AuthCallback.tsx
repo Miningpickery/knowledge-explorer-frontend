@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 const AuthCallback: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('인증 처리 중...');
+  const [hasRedirected, setHasRedirected] = useState(false);
 
     useEffect(() => {
     let redirectTimer: NodeJS.Timeout | null = null;
@@ -28,7 +29,7 @@ const AuthCallback: React.FC = () => {
         if (error) {
           console.error('❌ 인증 오류:', error);
           setStatus('error');
-          setMessage('인증에 실패했습니다: ' + error);
+          setMessage(`인증에 실패했습니다: ${  error}`);
           return;
         }
 
@@ -38,7 +39,7 @@ const AuthCallback: React.FC = () => {
           sessionStorage.setItem('token', token);
           console.log('✅ 토큰 저장 완료:', {
             tokenLength: token.length,
-            tokenPrefix: token.substring(0, 20) + '...',
+            tokenPrefix: `${token.substring(0, 20)  }...`,
             storage: 'localStorage + sessionStorage'
           });
 
@@ -61,10 +62,17 @@ const AuthCallback: React.FC = () => {
           setStatus('success');
           setMessage('인증이 완료되었습니다. 잠시 후 메인 페이지로 이동합니다.');
 
+          // 무한 루프 방지
+          if (hasRedirected) {
+            console.log('⚠️ 이미 리다이렉트됨, 중복 방지');
+            return;
+          }
+
           // 리다이렉션 타이머 설정
           redirectTimer = setTimeout(() => {
             console.log('🔄 메인 페이지로 리다이렉트');
-            // window.location.replace를 사용하여 히스토리를 깨끗하게 유지
+            setHasRedirected(true);
+            // 단순히 메인 페이지로 이동 (새로고침 없이)
             window.location.replace('/');
           }, 1500);
         } else {

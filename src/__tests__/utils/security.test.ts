@@ -232,7 +232,7 @@ describe('SecureTokenManager', () => {
 
   test('만료된 토큰을 감지해야 함', () => {
     // 만료된 토큰 (과거 시간)
-    const expiredToken = 'header.' + btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 3600 })) + '.signature';
+    const expiredToken = `header.${  btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 3600 }))  }.signature`;
     
     const isExpired = SecureTokenManager.isTokenExpired(expiredToken);
     expect(isExpired).toBe(true);
@@ -240,7 +240,7 @@ describe('SecureTokenManager', () => {
 
   test('유효한 토큰을 승인해야 함', () => {
     // 유효한 토큰 (미래 시간)
-    const validToken = 'header.' + btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })) + '.signature';
+    const validToken = `header.${  btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))  }.signature`;
     
     const isExpired = SecureTokenManager.isTokenExpired(validToken);
     expect(isExpired).toBe(false);

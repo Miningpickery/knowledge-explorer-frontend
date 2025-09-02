@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from './ui/Button';
+import { FileText, Star, Calendar, Edit, Trash, Plus, Zap } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface Memory {
-  id: number;
+  memory_id: number;  // 🚨 id → memory_id로 변경
   title: string;
   content: string;
   importance: number;
@@ -42,13 +45,12 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({ userId }) => {
       
       if (response.ok) {
         const responseData = await response.json();
-        // API 응답이 { success: true, data: [...] } 형태로 오므로 data 필드를 사용
         const memoriesArray = responseData.data || [];
         setMemories(memoriesArray);
       }
     } catch (error) {
       console.error('메모리 로딩 오류:', error);
-      setMemories([]); // 에러 시 빈 배열로 설정
+      setMemories([]);
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({ userId }) => {
     if (!editingMemory) return;
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories/${editingMemory.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/memories/${editingMemory.memory_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -150,57 +152,100 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({ userId }) => {
     setFormData({ ...formData, tags });
   };
 
+  const renderImportanceStars = (importance: number) => {
+    return (
+      <div className="flex items-center gap-1">
+        <Star className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">{importance}/5</span>
+      </div>
+    );
+  };
+
+  const renderActionButtons = (memory: Memory) => {
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEditMemory(memory)}
+          className="flex items-center gap-1"
+        >
+          <FileText className="w-3 h-3" />
+          <span className="hidden sm:inline">대화요약</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEditMemory(memory)}
+          className="flex items-center gap-1"
+        >
+          <Zap className="w-3 h-3" />
+          <span className="hidden sm:inline">자동생성</span>
+        </Button>
+      </div>
+    );
+  };
+
   if (loading) {
-    return <div className="text-center py-8">메모리를 불러오는 중...</div>;
+    return <div className="text-center py-8 text-muted-foreground">메모리를 불러오는 중...</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* 헤더 */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">장기 메모리 관리</h2>
-        <button
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <FileText className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <h2 className="text-2xl font-semibold text-foreground">장기 메모리 관리</h2>
+        </div>
+        <Button
           onClick={() => setShowCreateForm(true)}
-          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+          variant="primary"
+          size="sm"
+          className="flex items-center gap-2"
         >
-          새 메모리 추가
-        </button>
+          <Plus className="w-4 h-4" />
+          <span>새 메모리</span>
+        </Button>
       </div>
 
       {/* 메모리 생성/수정 폼 */}
       {(showCreateForm || editingMemory) && (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4">
+        <div className="bg-card rounded-lg shadow-soft p-6 mb-6 border border-border">
+          <h3 className="text-lg font-semibold mb-4 text-card-foreground">
             {editingMemory ? '메모리 수정' : '새 메모리 추가'}
           </h3>
           <form onSubmit={editingMemory ? handleUpdateMemory : handleCreateMemory} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+              <label className="block text-sm font-medium text-card-foreground mb-1">제목</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
+              <label className="block text-sm font-medium text-card-foreground mb-1">내용</label>
               <textarea
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
                 rows={4}
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">중요도</label>
+              <label className="block text-sm font-medium text-card-foreground mb-1">중요도</label>
               <select
                 value={formData.importance}
                 onChange={(e) => setFormData({ ...formData, importance: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
               >
                 <option value={1}>1 - 낮음</option>
                 <option value={2}>2 - 보통</option>
@@ -211,34 +256,36 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({ userId }) => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">태그 (쉼표로 구분)</label>
+              <label className="block text-sm font-medium text-card-foreground mb-1">태그 (쉼표로 구분)</label>
               <input
                 type="text"
                 value={formData.tags.join(', ')}
                 onChange={handleTagsChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background text-foreground"
                 placeholder="예: 비즈니스, 전략, 마케팅"
               />
             </div>
             
-            <div className="flex space-x-2">
-              <button
+            <div className="flex gap-2">
+              <Button
                 type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                variant="primary"
+                size="sm"
               >
                 {editingMemory ? '수정' : '추가'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setShowCreateForm(false);
                   setEditingMemory(null);
                   setFormData({ title: '', content: '', importance: 1, tags: [], memory_type: 'conversation' });
                 }}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 transition-colors"
               >
                 취소
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -247,58 +294,70 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({ userId }) => {
       {/* 메모리 목록 */}
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             메모리를 불러오는 중...
           </div>
         ) : !Array.isArray(memories) || memories.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             아직 저장된 메모리가 없습니다.
           </div>
         ) : (
           memories.map((memory) => (
-            <div key={memory.id} className="bg-white rounded-lg shadow-md p-6">
+            <div key={memory.memory_id} className="bg-card rounded-lg shadow-soft p-6 border border-border">
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{memory.title}</h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-sm text-gray-500">
-                      중요도: {memory.importance}/5
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {new Date(memory.created_at).toLocaleDateString()}
-                    </span>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-card-foreground">{memory.title}</h3>
+                    <div className="flex items-center gap-4 mt-2">
+                      {renderImportanceStars(memory.importance)}
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(memory.created_at).toLocaleDateString('ko-KR')}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleEditMemory(memory)}
-                    className="text-blue-500 hover:text-blue-700 text-sm"
+                    className="p-2"
                   >
-                    수정
-                  </button>
+                    <Edit className="w-4 h-4" />
+                  </Button>
                   <button
-                    onClick={() => handleDeleteMemory(memory.id)}
-                    className="text-red-500 hover:text-red-700 text-sm"
+                    onClick={() => handleDeleteMemory(memory.memory_id)}
+                    className="text-red-500 hover:text-red-700 transition-colors"
                   >
-                    삭제
+                    <Trash className="w-4 h-4" />
                   </button>
                 </div>
               </div>
               
-              <p className="text-gray-700 mb-3">{memory.content}</p>
+              <p className="text-card-foreground mb-4 ml-11">{memory.content}</p>
               
               {memory.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 ml-11">
                   {memory.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs"
+                      className="bg-muted text-muted-foreground px-2 py-1 rounded-full text-xs"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
               )}
+              
+              <div className="mt-4 ml-11">
+                {renderActionButtons(memory)}
+              </div>
             </div>
           ))
         )}

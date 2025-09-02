@@ -9,7 +9,7 @@ import { Streamdown } from 'streamdown';
 
 // 타입을 직접 정의
 interface ChatMessage {
-  id: string;
+  message_id: string;
   text: string;
   sender: 'user' | 'model';
   timestamp: string;
@@ -29,9 +29,20 @@ enum MessageSender {
 interface MessageItemProps {
   message: ChatMessage;
   onSuggestedQueryClick: (query: string) => void;
+  isDarkMode?: boolean;
 }
 
-const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClick }) => {
+const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClick, isDarkMode = false }) => {
+  // 디버깅 로그 제거 (무한루프 방지)
+  // console.log('🔍 MessageItem 렌더링:', {
+  //   messageId: message.message_id,
+  //   text: message.text,
+  //   sender: message.sender,
+  //   timestamp: message.timestamp,
+  //   isStreaming: message.isStreaming,
+  //   isLoading: message.isLoading
+  // });
+  
   const isUser = message.sender === MessageSender.USER;
   const hasTextContent = !!message.text?.trim();
   const hasSources = !!message.sources && message.sources.length > 0;
@@ -41,16 +52,16 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClic
       return (
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1.5">
-            <div className="w-2 h-2 bg-[#D55C2D] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-[#D55C2D] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-[#D55C2D] rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.3s] bg-primary"></div>
+            <div className="w-2 h-2 rounded-full animate-bounce [animation-delay:-0.15s] bg-primary"></div>
+            <div className="w-2 h-2 rounded-full animate-bounce bg-primary"></div>
           </div>
-          <span className="text-sm text-gray-600 font-medium">{message.text}</span>
+          <span className="text-sm text-foreground font-medium">{message.text}</span>
         </div>
       );
     }
     
-    if (message.isStreaming) {
+    if (message.isStreaming && message.text) {
       return (
         <div className="text-sm">
           <Streamdown 
@@ -59,7 +70,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClic
           >
             {message.text}
           </Streamdown>
-          <span className="inline-block w-1 h-4 bg-[#D55C2D] ml-1 animate-pulse rounded-sm"></span>
+          <span className="inline-block w-1 h-4 ml-1 animate-pulse rounded-sm bg-primary"></span>
         </div>
       );
     }
@@ -74,29 +85,34 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClic
       const followUpQuestions = questionText.split('|').map(q => q.trim()).filter(q => q);
       
       return (
-        <div className="text-sm">
-          <div className="bg-white border border-[#D55C2D] rounded-lg p-3 shadow-sm">
-            <div className="flex items-center mb-2">
-              <span className="text-[#D55C2D] mr-2">💡</span>
-              <span className="text-sm font-medium text-gray-700">추천 질문</span>
+        <div className="my-4">
+          {/* 추천 질문 헤더 */}
+          <div className="flex items-center mb-3">
+            <div className="flex items-center justify-center w-6 h-6 rounded-full mr-2 bg-primary">
+              <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+              </svg>
             </div>
-            <div className="space-y-2">
-              {followUpQuestions.map((question, index) => (
-                <button
-                  key={index}
-                  onClick={() => onSuggestedQueryClick && onSuggestedQueryClick(question)}
-                  className="w-full text-left px-3 py-2 bg-[#FFEFE6] text-[#C05621] rounded-md hover:bg-[#FBDAC8] transition-colors duration-200 text-xs"
-                >
-                  {question}
-                </button>
-              ))}
-            </div>
+            <h4 className="text-sm font-medium text-foreground">이런 질문은 어떠세요?</h4>
+          </div>
+          
+          {/* 추천 질문 버튼들 - 한 줄에 1개씩 */}
+          <div className="space-y-1.5">
+            {followUpQuestions.map((question, index) => (
+              <button
+                key={`followup-${index}-${question.substring(0, 10)}`}
+                onClick={() => onSuggestedQueryClick && onSuggestedQueryClick(question)}
+                className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-left text-xs text-card-foreground hover:border-primary hover:shadow-soft transition-all duration-200 hover:bg-secondary"
+              >
+                {question}
+              </button>
+            ))}
           </div>
         </div>
       );
     }
-    
-    // 일반 텍스트 렌더링 (Streamdown으로 마크다운 처리)
+
+    // 일반 텍스트 메시지
     return (
       <div className="text-sm">
         <Streamdown 
@@ -109,51 +125,38 @@ const MessageItem: React.FC<MessageItemProps> = ({ message, onSuggestedQueryClic
     );
   };
 
-  return (
-    <div className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'} message-item`}>
-      <div className={`bubble ${isUser ? 'bubble-user' : 'bubble-model'} shadow-sm ${message.isLoading ? 'streaming-text' : ''}`}>
-        {renderMessageContent()}
-        
-        {hasSources && (
-          <div className={hasTextContent ? "mt-3 pt-2 border-t border-gray-200" : ""}>
-            <h4 className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5">
-              <Link size={12} />
-              출처
-            </h4>
-            <ul className="space-y-1">
-              {message.sources!.map((source, index) => (
-                <li key={index} className="text-xs">
-                  <a 
-                    href={source.uri} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-[#C05621] hover:underline truncate block"
-                    title={source.uri}
-                  >
-                    {source.title || source.uri}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+  // 소스 링크 렌더링
+  const renderSources = () => {
+    if (!hasSources) return null;
 
-        {message.followUpQuestions && message.followUpQuestions.length > 0 && (
-          <div className={(hasTextContent || hasSources) ? "mt-3 pt-2 border-t border-gray-200/80" : ""}>
-             <h4 className="text-xs font-semibold text-gray-600 mb-1.5">추천 질문:</h4>
-             <div className="flex flex-wrap gap-1.5">
-                {message.followUpQuestions?.filter(q => q && typeof q === 'string' && q.trim()).map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onSuggestedQueryClick(q.trim())}
-                    className="bg-[#FFEFE6] text-[#C05621] px-2.5 py-1 rounded-full text-xs hover:bg-[#FBDAC8] transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
-             </div>
-          </div>
-        )}
+    return (
+      <div className="mt-3 pt-3 border-t border-border">
+        <div className="flex items-center gap-2 mb-2">
+          <Link className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">참고 자료</span>
+        </div>
+        <div className="space-y-1">
+          {message.sources?.map((source, index) => (
+            <a
+              key={`source-${index}-${source.substring(0, 20)}`}
+              href={source}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-xs text-primary hover:text-primary/80 transition-colors duration-200"
+            >
+              {source}
+            </a>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-6 w-full`}>
+      <div className={`bubble ${isUser ? 'bubble-user' : 'bubble-model'} max-w-[75%]`}>
+        {renderMessageContent()}
+        {renderSources()}
       </div>
     </div>
   );

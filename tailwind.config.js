@@ -8,24 +8,30 @@ export default {
   darkMode: ["class"],
   theme: {
     extend: {
-      // 🎨 색상 시스템 (디자인 가이드 준수: 3-5개 색상)
+      // 🎨 모노 스타일 색상 시스템 (일관된 네이비 기반)
       colors: {
-        // 주요 브랜드 색상 (모던한 블루)
+        // 🎯 핵심 브랜드 색상 (단일 색상 기반)
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
-          50: '#eff6ff',
-          100: '#dbeafe', 
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb', // 주요 브랜드 색상
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#f8f9fa',
+          100: '#e9ecef',
+          200: '#dee2e6',
+          300: '#ced4da',
+          400: '#adb5bd',
+          500: '#6c757d',
+          600: '#495057',
+          700: '#343a40',
+          800: '#2c3e50', // 주요 브랜드 색상
+          900: '#212529',
         },
-        // 중성색 시스템
+        // 🌟 액센트 색상 (브랜드 색상의 변형)
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+          500: '#34495e', // 밝은 네이비
+        },
+        // 🎨 중성색 시스템 (모노크롬 기반)
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -40,13 +46,7 @@ export default {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
-        // 액센트 색상 (성공/긍정적 액션용)
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-          500: '#10b981', // 에메랄드 그린
-        },
-        // 기능적 색상
+        // ⚠️ 기능적 색상
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
@@ -55,10 +55,10 @@ export default {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
       },
-      // 📝 폰트 시스템 (최대 2개)
+      // 📝 폰트 시스템 (단일 폰트 패밀리)
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'], // 본문용
-        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'monospace'], // 코드용
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['Inter', 'Menlo', 'Monaco', 'monospace'], // 코드용도 Inter 사용
       },
       // 📐 간격 시스템 (일관된 스케일)
       spacing: {
@@ -67,12 +67,12 @@ export default {
       },
       // 📱 반응형 브레이크포인트 (모바일 우선)
       screens: {
-        'xs': '475px',   // 추가 작은 화면
-        'sm': '640px',   // 작은 태블릿
+        'xs': '475px',   // 초소형 모바일
+        'sm': '640px',   // 모바일
         'md': '768px',   // 태블릿
-        'lg': '1024px',  // 작은 데스크톱
+        'lg': '1024px',  // 소형 데스크톱
         'xl': '1280px',  // 데스크톱
-        '2xl': '1536px', // 큰 데스크톱
+        '2xl': '1536px', // 대형 데스크톱
       },
       // 🎭 애니메이션 시스템
       animation: {
@@ -113,6 +113,20 @@ export default {
         'xl': ['1.25rem', { lineHeight: '1.75rem' }],  // 20px
         '2xl': ['1.5rem', { lineHeight: '2rem' }],     // 24px
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }], // 30px
+      },
+      // 🎨 그림자 시스템
+      boxShadow: {
+        'soft': '0 1px 3px rgba(0, 0, 0, 0.1)',
+        'medium': '0 4px 6px rgba(0, 0, 0, 0.1)',
+        'strong': '0 10px 15px rgba(0, 0, 0, 0.1)',
+      },
+      // 📐 둥근 모서리 시스템
+      borderRadius: {
+        'sm': '0.375rem',
+        DEFAULT: '0.75rem',
+        'md': '1rem',
+        'lg': '1.5rem',
+        'xl': '2rem',
       },
     },
   },

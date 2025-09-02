@@ -30,7 +30,7 @@ async function createOrUpdateGoogleUser(googleProfile) {
     const profilePicture = photos[0]?.value;
     
     // username 생성 (email에서 @ 앞부분 사용)
-    const username = email.split('@')[0] + '_' + googleId.slice(-6);
+    const username = `${email.split('@')[0]  }_${  googleId.slice(-6)}`;
 
     // 기존 사용자 확인
     let user = await getUserByGoogleId(googleId);
@@ -40,24 +40,34 @@ async function createOrUpdateGoogleUser(googleProfile) {
       const query = `
         INSERT INTO users (google_id, email, name, username, profile_picture, last_login)
         VALUES ($1, $2, $3, $4, $5, NOW())
-        RETURNING id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
+        RETURNING user_id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
       `;
       
       const result = await pool.query(query, [googleId, email, displayName, username, profilePicture]);
       user = result.rows[0];
       console.log(`✅ 새 Google 사용자 생성: ${email} (username: ${username})`);
+      
+      // 초기 관리자 권한 부여 (miningpickery@gmail.com인 경우)
+      if (email === 'miningpickery@gmail.com') {
+        await grantInitialAdminPermission(user);
+      }
     } else {
       // 기존 사용자 정보 업데이트
       const query = `
         UPDATE users 
         SET name = $1, profile_picture = $2, last_login = NOW(), updated_at = NOW()
         WHERE google_id = $3
-        RETURNING id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
+        RETURNING user_id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
       `;
       
       const result = await pool.query(query, [displayName, profilePicture, googleId]);
       user = result.rows[0];
       console.log(`✅ 기존 Google 사용자 업데이트: ${email}`);
+      
+      // 기존 사용자도 관리자 권한 확인
+      if (email === 'miningpickery@gmail.com') {
+        await grantInitialAdminPermission(user);
+      }
     }
 
     return user;
@@ -67,11 +77,55 @@ async function createOrUpdateGoogleUser(googleProfile) {
   }
 }
 
+// 초기 관리자 권한 부여
+async function grantInitialAdminPermission(user) {
+  try {
+    // admin_users 테이블이 존재하는지 확인
+    const checkTableQuery = `
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'admin_users'
+      ) as exists;
+    `;
+    
+    const tableResult = await pool.query(checkTableQuery);
+    if (!tableResult.rows[0].exists) {
+      console.log('⚠️ admin_users 테이블이 존재하지 않습니다. 관리자 권한 부여를 건너뜁니다.');
+      return;
+    }
+
+    // 이미 관리자인지 확인
+    const checkAdminQuery = `
+      SELECT admin_id FROM admin_users WHERE user_id = $1
+    `;
+    
+    const adminResult = await pool.query(checkAdminQuery, [user.user_id]);
+    
+    if (adminResult.rows.length === 0) {
+      // 관리자 권한 부여
+      const insertAdminQuery = `
+        INSERT INTO admin_users (user_id, email, role, permissions)
+        VALUES ($1, $2, 'super_admin', ARRAY['database_read', 'database_write', 'user_management', 'system_admin'])
+        ON CONFLICT (email) DO NOTHING
+      `;
+      
+      await pool.query(insertAdminQuery, [user.user_id, user.email]);
+      console.log(`✅ 초기 관리자 권한 부여 완료: ${user.email}`);
+    } else {
+      console.log(`✅ 초기 관리자 이미 존재: ${user.email}`);
+    }
+  } catch (error) {
+    console.error('❌ 초기 관리자 권한 부여 실패:', error);
+    // 권한 부여 실패해도 로그인은 계속 진행
+  }
+}
+
 // Google ID로 사용자 조회
 async function getUserByGoogleId(googleId) {
   try {
     const query = `
-      SELECT id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
+      SELECT user_id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
       FROM users
       WHERE google_id = $1 AND deleted_at IS NULL
     `;
@@ -87,7 +141,7 @@ async function getUserByGoogleId(googleId) {
 // JWT 토큰 생성 (보안 강화)
 function generateToken(user) {
   const payload = {
-    userId: user.id,
+    userId: user.user_id,
     email: user.email,
     name: user.name,
     googleId: user.google_id,
@@ -131,7 +185,7 @@ async function checkTokenBlacklist(token) {
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const query = `
-      SELECT id FROM user_sessions 
+      SELECT session_id FROM user_sessions 
       WHERE token_hash = $1 AND is_active = FALSE
     `;
     const result = await pool.query(query, [tokenHash]);
@@ -163,9 +217,9 @@ async function blacklistToken(token) {
 async function getUserById(userId) {
   try {
     const query = `
-      SELECT id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
+      SELECT user_id, email, name, username, company, role, google_id, profile_picture, is_active, last_login, created_at, updated_at
       FROM users
-      WHERE id = $1 AND deleted_at IS NULL
+      WHERE user_id = $1 AND deleted_at IS NULL
     `;
     
     const result = await pool.query(query, [userId]);
@@ -199,7 +253,7 @@ async function updateUserProfile(userId, updates) {
       params.push(updates.username);
     }
     
-    query += ` WHERE id = $${paramIndex} AND deleted_at IS NULL`;
+    query += ` WHERE user_id = $${paramIndex} AND deleted_at IS NULL`;
     params.push(userId);
     
     const result = await pool.query(query, params);
@@ -221,7 +275,7 @@ async function deactivateUser(userId) {
     const query = `
       UPDATE users 
       SET is_active = FALSE, deleted_at = NOW(), updated_at = NOW() 
-      WHERE id = $1 AND deleted_at IS NULL
+      WHERE user_id = $1 AND deleted_at IS NULL
     `;
     
     const result = await pool.query(query, [userId]);
@@ -242,7 +296,7 @@ async function deactivateUser(userId) {
 async function getUserByCustomerId(customerId) {
   try {
     const query = `
-      SELECT id, email, name, username, company, role, google_id, customer_id, profile_picture, is_active, last_login, created_at, updated_at
+      SELECT user_id, email, name, username, company, role, google_id, customer_id, profile_picture, is_active, last_login, created_at, updated_at
       FROM users
       WHERE customer_id = $1 AND deleted_at IS NULL
     `;
@@ -261,8 +315,8 @@ async function updateCustomerId(userId, customerId) {
     const query = `
       UPDATE users 
       SET customer_id = $1, updated_at = NOW()
-      WHERE id = $2
-      RETURNING id, email, name, customer_id
+      WHERE user_id = $2
+      RETURNING user_id, email, name, customer_id
     `;
     
     const result = await pool.query(query, [customerId, userId]);
@@ -280,7 +334,7 @@ async function linkGoogleUserToCustomer(googleId, customerId) {
       UPDATE users 
       SET customer_id = $1, updated_at = NOW()
       WHERE google_id = $2
-      RETURNING id, email, name, google_id, customer_id
+      RETURNING user_id, email, name, google_id, customer_id
     `;
     
     const result = await pool.query(query, [customerId, googleId]);

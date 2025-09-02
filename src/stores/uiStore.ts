@@ -203,20 +203,20 @@ export const useUIStore = create<UIState & UIActions>()(
         }
       }),
 
-      removeNotification: (id) => set((state) => {
-        state.notifications = state.notifications.filter(n => n.id !== id);
+      removeNotification: (notificationId) => set((state) => {
+        state.notifications = state.notifications.filter(n => n.notification_id !== notificationId);
       }),
 
       clearNotifications: () => set((state) => {
         state.notifications = [];
       }),
 
-      markNotificationAsRead: (id) => set((state) => {
-        const notification = state.notifications.find(n => n.id === id);
+      markNotificationAsRead: (notificationId) => set((state) => {
+        const notification = state.notifications.find(n => n.notification_id === notificationId);
         if (notification) {
           // In a more complex app, you might have a 'read' property
           // For now, we'll just remove it
-          state.notifications = state.notifications.filter(n => n.id !== id);
+          state.notifications = state.notifications.filter(n => n.notification_id !== notificationId);
         }
       }),
 

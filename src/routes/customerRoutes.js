@@ -70,7 +70,10 @@ router.get('/context/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
     const context = await getConversationContext(chatId);
-    res.json(context);
+    res.json({
+      success: true,
+      data: context
+    });
   } catch (error) {
     console.error('Error getting conversation context:', error);
     res.status(500).json({
@@ -102,7 +105,10 @@ router.put('/context/:chatId', async (req, res) => {
     }
     
     const updatedContext = await updateConversationContext(chatId, context);
-    res.json(updatedContext);
+    res.json({
+      success: true,
+      data: updatedContext
+    });
   } catch (error) {
     console.error('Error updating conversation context:', error);
     res.status(500).json({
@@ -154,7 +160,10 @@ router.get('/feedback/chat/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
     const feedback = await getFeedbackByChat(chatId);
-    res.json(feedback);
+    res.json({
+      success: true,
+      data: feedback
+    });
   } catch (error) {
     console.error('Error getting feedback by chat:', error);
     res.status(500).json({
@@ -172,7 +181,10 @@ router.get('/feedback/chat/:chatId', async (req, res) => {
 router.get('/feedback/stats', async (req, res) => {
   try {
     const stats = await getFeedbackStats();
-    res.json(stats);
+    res.json({
+      success: true,
+      data: stats
+    });
   } catch (error) {
     console.error('Error getting feedback stats:', error);
     res.status(500).json({
@@ -237,7 +249,10 @@ router.put('/issues/:issueId', async (req, res) => {
     }
     
     const issue = await updateIssueStatus(issueId, status, assignedTo);
-    res.json(issue);
+    res.json({
+      success: true,
+      data: issue
+    });
   } catch (error) {
     console.error('Error updating issue status:', error);
     res.status(500).json({
@@ -256,7 +271,10 @@ router.get('/issues', async (req, res) => {
   try {
     const { status } = req.query;
     const issues = await getIssuesByStatus(status);
-    res.json(issues);
+    res.json({
+      success: true,
+      data: issues
+    });
   } catch (error) {
     console.error('Error getting issues:', error);
     res.status(500).json({
@@ -274,7 +292,10 @@ router.get('/issues', async (req, res) => {
 router.get('/issues/urgent', async (req, res) => {
   try {
     const issues = await getUrgentIssues();
-    res.json(issues);
+    res.json({
+      success: true,
+      data: issues
+    });
   } catch (error) {
     console.error('Error getting urgent issues:', error);
     res.status(500).json({
@@ -295,7 +316,10 @@ router.get('/insights/summary/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
     const summary = await generateConversationSummary(chatId);
-    res.json(summary);
+    res.json({
+      success: true,
+      data: summary
+    });
   } catch (error) {
     console.error('Error generating conversation summary:', error);
     res.status(500).json({
@@ -314,7 +338,10 @@ router.get('/insights/satisfaction/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
     const satisfaction = await analyzeCustomerSatisfaction(chatId);
-    res.json(satisfaction);
+    res.json({
+      success: true,
+      data: satisfaction
+    });
   } catch (error) {
     console.error('Error analyzing customer satisfaction:', error);
     res.status(500).json({
@@ -333,7 +360,10 @@ router.get('/insights/behavior', async (req, res) => {
   try {
     const { userId } = req.query;
     const behavior = await analyzeCustomerBehavior(userId);
-    res.json(behavior);
+    res.json({
+      success: true,
+      data: behavior
+    });
   } catch (error) {
     console.error('Error analyzing customer behavior:', error);
     res.status(500).json({
@@ -352,7 +382,10 @@ router.get('/insights/trends', async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const trends = await analyzeIssueTrends(parseInt(days));
-    res.json(trends);
+    res.json({
+      success: true,
+      data: trends
+    });
   } catch (error) {
     console.error('Error analyzing issue trends:', error);
     res.status(500).json({

@@ -5,8 +5,49 @@ const {
   getUserById, 
   getUserByEmail, 
   updateUser, 
-  deleteUser 
+  deleteUser,
+  getAllUsers
 } = require('../services/chatHistoryService');
+
+// GET /api/users - 전체 사용자 조회 (페이지네이션 지원)
+router.get('/', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search, role, company } = req.query;
+    const offset = (page - 1) * limit;
+    
+    // 사용자 조회 서비스 호출
+    const users = await getAllUsers({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      offset,
+      search,
+      role,
+      company
+    });
+    
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: users.length,
+        hasMore: users.length === parseInt(limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: '사용자 조회 중 오류가 발생했습니다.',
+        details: error.message
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // 사용자 생성
 router.post('/', async (req, res) => {
