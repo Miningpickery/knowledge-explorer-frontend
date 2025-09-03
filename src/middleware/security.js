@@ -75,7 +75,7 @@ const securityHeaders = helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:3001", "http://192.168.0.55:3001", "ws:", "wss:"],
+      connectSrc: ["'self'", "http://localhost:3001", "http://192.168.0.55:3001", "https://*.trycloudflare.com", "ws:", "wss:"],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],

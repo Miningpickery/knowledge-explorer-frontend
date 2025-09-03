@@ -9,13 +9,8 @@ export default defineConfig(({ mode, command }) => {
       return process.env.VITE_API_URL;
     }
     
-    // 모드별 기본값 설정
-    if (mode === 'development') {
-      return 'http://localhost:3001';
-    }
-    
-    // 로컬 네트워크 테스트용 (기본값)
-    return 'http://192.168.0.55:3001';
+    // 로컬 개발 환경 (기본값)
+    return 'http://localhost:3001';
   };
 
   // 개발 환경 감지
@@ -41,10 +36,22 @@ export default defineConfig(({ mode, command }) => {
       __DEV__: isDev,
       __PROD__: isBuild,
     },
-                 server: {
-               port: 8000,
-               host: true,
-               strictPort: true,
+    server: {
+      port: 8000,
+      host: '0.0.0.0', // 모든 IP에서 접근 가능하도록 설정
+      strictPort: true,
+      
+      // LocalTunnel, ngrok, Cloudflare Tunnel 호스트 허용
+      allowedHosts: [
+        'localhost',
+        '127.0.0.1',
+        '192.168.0.55',
+        '.loca.lt',
+        '.ngrok-free.app',
+        '.ngrok.io',
+        '.trycloudflare.com'
+      ],
+      
       // HMR 설정 (WebSocket 문제 시 주석 해제)
       hmr: {
         port: 8000,

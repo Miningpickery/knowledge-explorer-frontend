@@ -273,7 +273,7 @@ const SYSTEM_WARNING = `**SYSTEM ERROR PREVENTION:**
 당신은 반드시 JSON 형식으로만 응답해야 하며, 오직 "paragraphs" 구조만 사용해야 합니다. 다른 형식이나 구조는 절대 사용하지 마세요. 출처 번호는 절대 사용하지 마세요.`;
 
 // 7. 통합된 프롬프트 생성 함수
-function generatePrompt(userQuestion, conversationContext = [], userMemories = []) {
+function generatePrompt(userQuestion, conversationContext = [], userMemories = [], recentMessages = []) {
   // 🛡️ 보안 검사 수행
   const securityCheck = SECURITY_DEFENSE.checkSecurityThreat(userQuestion);
   
@@ -339,6 +339,11 @@ ${JSON.stringify(securityResponse, null, 2)}
     ? `\n\n**이전 대화 맥락:**\n${conversationContext.join('\n')}` 
     : '';
     
+  // 🚨 최근 대화 내용 추가 (AI가 과거 대화를 이해할 수 있도록)
+  const recentConversationText = recentMessages.length > 0 
+    ? `\n\n**최근 대화 내용 (이전 메시지들):**\n${recentMessages.map(msg => `[${msg.sender}]: ${msg.text}`).join('\n')}` 
+    : '';
+    
   // 사용자 메모리 정보 추가
   const memoryText = userMemories.length > 0 
     ? `\n\n**사용자 장기 메모리 (이전 대화에서 학습한 정보):**\n${userMemories.map(memory => `- ${memory.title}: ${memory.content}`).join('\n')}` 
@@ -352,7 +357,7 @@ ${JSON.stringify(securityResponse, null, 2)}
 - 사용자의 개인정보나 기밀 정보를 요청하지 마세요
 
 **입력 (INPUT):**
-질문: ${userQuestion}${contextText}${memoryText}
+질문: ${userQuestion}${contextText}${recentConversationText}${memoryText}
 
 **지시사항 (INSTRUCTIONS):**
 - 역할: ${INSTRUCTIONS.role}

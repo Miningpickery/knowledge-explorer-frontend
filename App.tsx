@@ -20,7 +20,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Modal from './components/ui/Modal';
 import SidebarModal from './components/ui/SidebarModal';
 import { Button } from './components/ui/Button';
-import { Send } from 'lucide-react';
+import { Send, MessageCircle, Plus } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard';
 
 // 채팅 ID 형식 정의 (백엔드와 일치)
@@ -223,7 +223,7 @@ const App: React.FC = () => {
 
   // 🎯 Computed Values
   const activeChat = useChatStore.getState().getChatById(activeChatId || '') || null;
-  const isLoading = authLoading || setChatsLoading || setLoadingMessages || globalLoading;
+  const isLoading = authLoading || isLoadingChats || isLoadingMessages || globalLoading;
   const error = authError || authError;
   
   // 🔐 인증 관련 함수들
@@ -1129,7 +1129,17 @@ const App: React.FC = () => {
 
   // 📝 새 채팅 생성 함수
   const handleCreateNewChat = useCallback(async () => {
-    if (isLoading) return;
+    console.log('🚀 handleCreateNewChat 시작!');
+    console.log('🔍 isLoading 상태:', isLoading);
+    console.log('🔍 authLoading:', authLoading);
+    console.log('🔍 setChatsLoading:', setChatsLoading);
+    console.log('🔍 setLoadingMessages:', setLoadingMessages);
+    console.log('🔍 globalLoading:', globalLoading);
+    
+    if (isLoading) {
+      console.log('❌ isLoading이 true라서 함수 종료');
+      return;
+    }
 
     try {
       const token = localStorage.getItem('token');
@@ -1325,14 +1335,25 @@ const App: React.FC = () => {
       // 기존 메시지를 보존하면서 스트리밍 메시지만 업데이트 (중요: 사용자 메시지는 항상 보존)
       const currentMessages = targetChat.messages || [];
       
-      // 1. 로딩 중인 메시지만 제거 (사용자 메시지와 완성된 AI 메시지는 보존)
+      // 1. 🚨 기존 메시지는 모두 보존하고 로딩 중인 메시지만 제거
       const messagesWithoutLoading = currentMessages.filter((msg: any) => {
         // 사용자 메시지는 항상 보존
         if (msg.sender === 'user') {
           return true;
         }
-        // AI 메시지 중에서만 로딩 상태인 것 제거
+        // AI 메시지 중에서만 로딩 상태인 것 제거 (완성된 메시지는 보존)
         return !msg.isLoading;
+      });
+      
+      console.log('🔍 스트리밍 중 기존 메시지 보존:', {
+        원본메시지수: currentMessages.length,
+        보존된메시지수: messagesWithoutLoading.length,
+        보존된메시지: messagesWithoutLoading.map(m => ({ 
+          sender: m.sender, 
+          text: m.text?.substring(0, 30),
+          isStreaming: m.isStreaming,
+          isLoading: m.isLoading
+        }))
       });
       
       // 2. 스트리밍 메시지 찾기
@@ -1365,6 +1386,15 @@ const App: React.FC = () => {
       updateChat(streamingChatId, { messages: updatedMessages });
       console.log('✅ 채팅 메시지 업데이트 완료:', updatedMessages.length);
       
+      // 🚨 익명 채팅인 경우 개별 메시지 키에도 저장
+      if (!isAuthenticated) {
+        localStorage.setItem(`anonymous_chat_messages_${streamingChatId}`, JSON.stringify(updatedMessages));
+        console.log('💾 익명 채팅 스트리밍 메시지를 개별 키에 저장 완료:', {
+          chatId: streamingChatId,
+          messageCount: updatedMessages.length
+        });
+      }
+      
       // 현재 활성 채팅방이면 실시간 UI 업데이트
       if (useChatStore.getState().activeChatId === streamingChatId) {
         console.log('🎯 활성 채팅방 스트리밍 UI 업데이트 시작');
@@ -1384,14 +1414,29 @@ const App: React.FC = () => {
       // 기존 메시지를 보존하면서 새 메시지만 추가 (중요: 사용자 메시지는 항상 보존)
       const currentMessages = targetChat.messages || [];
       
-      // 1. 스트리밍 중인 메시지와 로딩 중인 메시지만 제거 (사용자 메시지는 보존)
+      // 1. 🚨 스트리밍 중인 메시지와 로딩 중인 메시지만 제거 (사용자 메시지와 완성된 AI 메시지는 보존)
       const filtered = currentMessages.filter((msg: any) => {
         // 사용자 메시지는 항상 보존
         if (msg.sender === 'user') {
           return true;
         }
-        // AI 메시지 중에서만 스트리밍/로딩 상태인 것 제거
+        // AI 메시지 중에서만 스트리밍/로딩 상태인 것 제거 (완성된 메시지는 보존)
         return msg.message_id !== streamingId && !msg.isLoading && !msg.isStreaming;
+      });
+      
+      console.log('🔍 최종 메시지 업데이트 시 기존 메시지 보존:', {
+        원본메시지수: currentMessages.length,
+        보존된메시지수: filtered.length,
+        보존된메시지: filtered.map(m => ({ 
+          sender: m.sender, 
+          text: m.text?.substring(0, 30),
+          message_id: m.message_id
+        })),
+        제거된메시지: currentMessages.filter(m => !filtered.includes(m)).map(m => ({
+          sender: m.sender,
+          text: m.text?.substring(0, 30),
+          reason: m.message_id === streamingId ? 'streamingId' : m.isLoading ? 'loading' : m.isStreaming ? 'streaming' : 'other'
+        }))
       });
       
       // 2. 새 메시지 추가 (기존 메시지 뒤에)
@@ -1418,6 +1463,15 @@ const App: React.FC = () => {
       updateChat(streamingChatId, { messages: updatedMessages });
       console.log('✅ 최종 메시지 업데이트 완료:', updatedMessages.length);
       
+      // 🚨 익명 채팅인 경우 개별 메시지 키에도 저장
+      if (!isAuthenticated) {
+        localStorage.setItem(`anonymous_chat_messages_${streamingChatId}`, JSON.stringify(updatedMessages));
+        console.log('💾 익명 채팅 최종 메시지를 개별 키에 저장 완료:', {
+          chatId: streamingChatId,
+          messageCount: updatedMessages.length
+        });
+      }
+      
       // 현재 활성 채팅방이면 전역 messages 상태도 업데이트
       if (useChatStore.getState().activeChatId === streamingChatId) {
         console.log('🎯 활성 채팅방 최종 메시지 상태 업데이트 시작');
@@ -1441,7 +1495,7 @@ const App: React.FC = () => {
   const sendMessage = useCallback(async (text: string) => {
     if (!activeChat || isSendingMessage) return;
     
-    // 메시지 전송 시작 시 기존 스트리밍 상태 초기화
+    // 🚨 기존 메시지는 보존하고 스트리밍 상태만 초기화
     const currentMessages = useChatStore.getState().messages;
     const cleanedMessages = Array.isArray(currentMessages) 
       ? currentMessages.map(msg => ({
@@ -1450,7 +1504,13 @@ const App: React.FC = () => {
           isLoading: false
         }))
       : [];
+    
+    // 🚨 기존 메시지를 보존하면서 스트리밍 상태만 업데이트
     setMessages(cleanedMessages);
+    console.log('🔍 메시지 전송 시작 - 기존 메시지 보존:', {
+      messageCount: cleanedMessages.length,
+      messages: cleanedMessages.map(m => ({ sender: m.sender, text: m.text?.substring(0, 30) }))
+    });
     
     setIsSendingMessage(true);
     let loadingInterval: NodeJS.Timeout | null = null;
@@ -1509,8 +1569,15 @@ const App: React.FC = () => {
           );
           
         setChats(updatedChats);
-          localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
-          localStorage.setItem('active_chat_id', activeChat.chat_id);
+        localStorage.setItem('anonymous_chats', JSON.stringify(updatedChats));
+        localStorage.setItem('active_chat_id', activeChat.chat_id);
+        
+        // 🚨 익명 채팅 메시지를 개별 키로도 저장 (selectChat에서 로딩용)
+        localStorage.setItem(`anonymous_chat_messages_${activeChat.chat_id}`, JSON.stringify(newMessages));
+        console.log('💾 익명 채팅 메시지를 개별 키에 저장 완료:', {
+          chatId: activeChat.chat_id,
+          messageCount: newMessages.length
+        });
       }
 
       // AI 응답 대기 메시지 추가 (단계별 변화)
@@ -1946,11 +2013,7 @@ const App: React.FC = () => {
                 onSendMessage={sendMessage}
                 isDarkMode={isDarkMode}
               />
-              {/* 디버깅용 메시지 상태 표시 */}
-              <div className="fixed bottom-20 right-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs z-50">
-                Messages: {Array.isArray(messages) ? messages.length : 'N/A'} | 
-                Active: {activeChatId || 'None'}
-              </div>
+
             </>
           ) : (
               <div className={`flex-1 flex flex-col items-center justify-center p-4 sm:p-8 ${
@@ -1962,9 +2025,7 @@ const App: React.FC = () => {
                     <div className={`w-16 h-16 rounded-lg flex items-center justify-center mx-auto ${
                       isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
                     }`}>
-                      <svg className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.955 8.955 0 01-3.426-.677l-3.426 1.13c-.54.18-1.127-.176-1.127-.794 0-.174.046-.344.134-.495L6.9 15.53A7.97 7.97 0 015 12c0-4.418 3.582-8 8-8s8 3.582 8 8z" />
-                      </svg>
+                      <MessageCircle className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
                     </div>
                   </div>
 
@@ -1986,9 +2047,7 @@ const App: React.FC = () => {
                     className="w-full sm:w-auto px-6 py-3 text-base"
                     disabled={isSendingMessage}
                   >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+                    <Plus className="w-5 h-5 mr-2" />
                     새 대화 시작하기
                   </Button>
                 </div>

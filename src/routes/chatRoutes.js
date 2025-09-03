@@ -704,9 +704,22 @@ router.post('/:chatId/messages', optionalAuth, async (req, res) => {
          throw new Error('AI 세션 생성 실패');
        }
        
+       // 🚨 실제 메시지 내용을 AI 프롬프트에 포함
+       const actualMessages = chat.messages || [];
+       const recentMessages = actualMessages.slice(-10); // 최근 10개 메시지만 포함
+       
+       console.log('📝 AI 프롬프트에 포함될 메시지:', {
+         totalMessages: actualMessages.length,
+         recentMessages: recentMessages.length,
+         messagePreview: recentMessages.map(m => ({ 
+           sender: m.sender, 
+           text: m.text?.substring(0, 50) 
+         }))
+       });
+       
        let integratedPrompt;
        try {
-         integratedPrompt = generatePrompt(message, conversationContexts, userMemories);
+         integratedPrompt = generatePrompt(message, conversationContexts, userMemories, recentMessages);
          console.log('✅ generatePrompt 성공');
        } catch (error) {
          console.error('❌ generatePrompt 실패:', error);

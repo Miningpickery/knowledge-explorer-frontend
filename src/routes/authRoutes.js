@@ -12,13 +12,63 @@ const { authenticateToken } = require('../middleware/auth');
 // Google OAuth 설정
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your-google-client-id';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret';
-const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback';
+
+// 🚨 Google OAuth 제약사항에 맞춘 콜백 URL 생성 함수
+const getCallbackUrl = (req) => {
+  const origin = req.get('Origin') || req.get('Host');
+  const referer = req.get('Referer');
+  
+  console.log('🔍 콜백 URL 생성 - 요청 정보:', {
+    origin,
+    referer,
+    host: req.get('Host'),
+    'user-agent': req.get('User-Agent')
+  });
+  
+  // 🚨 Google Cloud Console 제약사항: localhost만 허용
+  // Private IP (192.168.0.55)는 Google에서 허용하지 않음
+  
+  // ngrok URL 지원 (public URL)
+  if (origin && origin.includes('ngrok.io')) {
+    return `${origin}/api/auth/google/callback`;
+  }
+  
+  // LocalTunnel URL 지원 (public URL)
+  if (origin && origin.includes('loca.lt')) {
+    return `${origin}/api/auth/google/callback`;
+  }
+  
+  // localhost 기반 처리 (Google에서 허용)
+  if (origin && origin.includes('localhost')) {
+    return 'http://localhost:3001/api/auth/google/callback';
+  }
+  
+  // Referer 기반 처리 (ngrok, LocalTunnel, localhost)
+  if (referer) {
+    if (referer.includes('ngrok.io')) {
+      const ngrokUrl = referer.split('/')[0] + '//' + referer.split('/')[2];
+      return `${ngrokUrl}/api/auth/google/callback`;
+    }
+    if (referer.includes('loca.lt')) {
+      const localtunnelUrl = referer.split('/')[0] + '//' + referer.split('/')[2];
+      return `${localtunnelUrl}/api/auth/google/callback`;
+    }
+    if (referer.includes('localhost')) {
+      return 'http://localhost:3001/api/auth/google/callback';
+    }
+  }
+  
+  // 기본값: localhost 사용
+  const defaultUrl = 'http://localhost:3001/api/auth/google/callback';
+  console.log('✅ 최종 콜백 URL (localhost 기반):', defaultUrl);
+  return defaultUrl;
+};
 
 // OAuth 설정 로깅
 console.log('🔐 Google OAuth 설정:', {
   clientId: GOOGLE_CLIENT_ID ? '설정됨' : '기본값 사용',
   clientSecret: GOOGLE_CLIENT_SECRET ? '설정됨' : '기본값 사용',
-  callbackUrl: GOOGLE_CALLBACK_URL,
+  callbackUrl: '동적 생성',
   hasValidConfig: GOOGLE_CLIENT_ID !== 'your-google-client-id' && GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'
 });
 
@@ -35,11 +85,11 @@ if (GOOGLE_CLIENT_ID === 'your-google-client-id' || GOOGLE_CLIENT_SECRET === 'yo
   console.warn('   - GOOGLE_CLIENT_SECRET=your_actual_client_secret');
 }
 
-// Passport Google Strategy 설정
+// Passport Google Strategy 설정 (동적 콜백 URL)
 passport.use(new GoogleStrategy({
   clientID: GOOGLE_CLIENT_ID,
   clientSecret: GOOGLE_CLIENT_SECRET,
-  callbackURL: GOOGLE_CALLBACK_URL,
+  callbackURL: '/api/auth/google/callback', // 상대 경로로 설정
   scope: ['profile', 'email']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
@@ -70,6 +120,10 @@ passport.deserializeUser(async (userId, done) => {
 router.get('/google', (req, res, next) => {
   console.log('🔐 Google OAuth 로그인 요청');
   
+  // 🚨 콜백 URL 생성 및 로깅
+  const callbackUrl = getCallbackUrl(req);
+  console.log('🌐 생성된 콜백 URL:', callbackUrl);
+  
   // OAuth 설정 확인 - 실제 값이 있는지 확인
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || 
       GOOGLE_CLIENT_ID === 'your-google-client-id' || 
@@ -79,12 +133,15 @@ router.get('/google', (req, res, next) => {
       error: {
         code: 'OAUTH_NOT_CONFIGURED',
         message: 'Google OAuth가 설정되지 않았습니다.',
-        details: [
-          '1. Google Cloud Console에서 새 프로젝트 생성',
-          '2. APIs & Services > Credentials에서 OAuth 2.0 클라이언트 ID 생성',
-          '3. 승인된 리디렉션 URI에 http://localhost:3001/api/auth/google/callback 추가 (백엔드)',
-          '4. 환경 변수 설정: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET'
-        ],
+                 details: [
+           '1. Google Cloud Console에서 새 프로젝트 생성',
+           '2. APIs & Services > Credentials에서 OAuth 2.0 클라이언트 ID 생성',
+           '3. 승인된 리디렉션 URI에 다음 URL들을 추가:',
+           '   - http://localhost:3001/api/auth/google/callback (백엔드)',
+           '   - http://localhost:8000/api/auth/google/callback (프론트엔드)',
+           '4. 환경 변수 설정: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET',
+           '⚠️ 참고: Private IP (192.168.0.55)는 Google에서 허용하지 않음'
+         ],
         setupUrl: 'https://console.cloud.google.com/apis/credentials'
       }
     });

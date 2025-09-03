@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, MessageCircle, Edit } from 'lucide-react';
 import { Button } from './ui/Button';
 import { cn } from '../lib/utils';
 
@@ -58,7 +58,16 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       {/* 새 대화 버튼 */}
       <div className="p-4 border-b border-border bg-card">
         <Button
-          onClick={onNewChat}
+          onClick={() => {
+            console.log('🖱️ 새 대화 버튼 클릭됨!');
+            console.log('🔍 onNewChat 함수:', onNewChat);
+            console.log('🔍 onNewChat 타입:', typeof onNewChat);
+            if (onNewChat) {
+              onNewChat();
+            } else {
+              console.error('❌ onNewChat 함수가 정의되지 않음!');
+            }
+          }}
           disabled={isLoading}
           variant="primary"
           size="sm"
@@ -82,11 +91,10 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
               key={chat.chat_id}
               className={cn(
                 "group relative p-3 rounded-lg cursor-pointer transition-all duration-200",
-                "hover:bg-secondary hover:shadow-soft",
                 "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
                 activeChatId === chat.chat_id
-                  ? "bg-primary text-primary-foreground shadow-soft"
-                  : "bg-card text-card-foreground"
+                  ? "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
+                  : "bg-card text-card-foreground hover:bg-gray-100 dark:hover:bg-gray-800"
               )}
               onClick={(e) => {
                 e.preventDefault();
@@ -130,7 +138,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         "text-sm font-medium truncate cursor-pointer",
                         activeChatId === chat.chat_id
                           ? "text-primary-foreground"
-                          : "text-card-foreground"
+                          : "text-card-foreground group-hover:text-gray-900 dark:group-hover:text-gray-100"
                       )}
                       onDoubleClick={() => handleEditTitle(chat)}
                       title="더블클릭하여 제목 수정"
@@ -142,7 +150,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     "text-xs truncate mt-1",
                     activeChatId === chat.chat_id
                       ? "text-primary-foreground/70"
-                      : "text-muted-foreground"
+                      : "text-muted-foreground group-hover:text-gray-600 dark:group-hover:text-gray-300"
                   )}>
                     {chat.updated_at 
                       ? new Date(chat.updated_at).toLocaleDateString('ko-KR')
@@ -160,7 +168,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                      }}
                      className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                    >
-                     ✏️
+                     <Edit className="w-4 h-4" />
                    </button>
                    <button
                      onClick={(e) => {
@@ -169,7 +177,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                      }}
                      className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                    >
-                     🗑️
+                     <Trash2 className="w-4 h-4" />
                    </button>
                 </div>
               </div>

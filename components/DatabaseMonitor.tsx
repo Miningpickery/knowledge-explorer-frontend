@@ -185,7 +185,7 @@ const DatabaseMonitor: React.FC = () => {
 
           {/* 샘플 데이터 */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">📝 샘플 데이터</h3>
+                            <h3 className="text-lg font-semibold">샘플 데이터</h3>
             
             {/* 사용자 데이터 */}
             <div className="p-4 bg-blue-50 rounded-lg">

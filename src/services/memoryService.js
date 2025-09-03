@@ -33,10 +33,10 @@ async function getUserMemories(userId, limit = 50) {
     const profileResult = await pool.query(profileQuery, [userId]);
     const profile = profileResult.rows[0];
     
-    // 3. 프로필 기반 컨텍스트 메모리 생성
+    // 3. 프로필 기반 컨텍스트 메모리 생성 (읽기 전용)
     if (profile) {
-             const profileMemory = {
-         memory_id: 'profile_context',
+      const profileMemory = {
+        memory_id: -1, // 가상 ID로 설정하여 수정/삭제 방지
         memory_type: 'profile',
         title: '사용자 프로필 정보',
         content: `사용자명: ${profile.name || '미설정'}
@@ -48,7 +48,8 @@ async function getUserMemories(userId, limit = 50) {
         tags: ['프로필', '기본정보'],
         chat_id: null,
         created_at: profile.created_at,
-        updated_at: profile.created_at
+        updated_at: profile.created_at,
+        isReadOnly: true // 읽기 전용 플래그 추가
       };
       
       // 프로필 메모리를 최상단에 추가

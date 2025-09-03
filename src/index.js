@@ -25,7 +25,7 @@ if (!process.env.GOOGLE_CLIENT_ID) {
   // 개발 환경에서만 기본값 설정
   if (process.env.NODE_ENV !== 'production') {
     process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/knowledge_explorer';
-    process.env.GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback';
+         process.env.GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback';
     process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8000';
     console.log('🔧 개발 환경 기본값 설정 완료');
   }
