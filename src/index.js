@@ -9,13 +9,26 @@ console.log('📁 현재 디렉토리:', __dirname);
 
 // dotenv 로드
 console.log('🔧 dotenv 로드 시작...');
-const result = dotenv.config({ path: envPath });
+console.log('📁 .env 파일 존재 확인:', require('fs').existsSync(envPath));
+
+// 여러 방법으로 환경 변수 로드 시도
+let result = dotenv.config({ path: envPath });
 if (result.error) {
   console.error('❌ .env 파일 로드 실패:', result.error);
+  // 대안 방법 시도
+  try {
+    require('dotenv').config({ path: envPath });
+    console.log('✅ 대안 방법으로 .env 로드 성공');
+  } catch (altError) {
+    console.error('❌ 대안 방법도 실패:', altError);
+  }
 } else {
   console.log('✅ .env 파일 로드 성공');
   console.log('📄 로드된 환경 변수:', Object.keys(result.parsed || {}));
 }
+
+console.log('🔍 GEMINI_API_KEY 확인:', process.env.GEMINI_API_KEY ? '설정됨' : '없음');
+console.log('🔍 실제 GEMINI_API_KEY 값:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 10) + '...' : '없음');
 
 // 환경 변수 확인 및 기본값 설정
 if (!process.env.GOOGLE_CLIENT_ID) {

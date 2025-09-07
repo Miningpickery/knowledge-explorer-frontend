@@ -734,10 +734,14 @@ router.post('/:chatId/messages', optionalAuth, async (req, res) => {
          throw new Error('프롬프트 검증 실패');
        }
        
-       // AI로부터 전체 JSON 응답 받기 (스트리밍 없이)
-       console.log('📤 AI에 메시지 전송 중...');
-       let result = await chatSession.sendMessage(integratedPrompt);
-       console.log('📥 AI 응답 수신 완료');
+      // AI로부터 전체 JSON 응답 받기 (스트리밍 없이)
+      console.log('📤 AI에 메시지 전송 중...');
+      
+      let result;
+      
+      // 정상적인 AI 응답 생성
+      result = await chatSession.sendMessage(integratedPrompt);
+      console.log('📥 AI 응답 수신 완료');
       let fullResponse = result.response.text();
       let retryCount = 0;
       const maxRetries = 3;

@@ -31,22 +31,7 @@ const loginLimiter = (req, res, next) => {
   }
   
   // 프로덕션 환경에서만 Rate Limit 적용
-  return rateLimit({
-    windowMs: 15 * 60 * 1000, // 15분
-    max: 5, // IP당 최대 5번 로그인 시도
-    message: {
-      error: {
-        code: 'LOGIN_RATE_LIMIT_EXCEEDED',
-        message: '로그인 시도가 너무 많습니다. 15분 후 다시 시도해주세요.',
-        details: 'Login rate limit exceeded'
-      },
-      timestamp: new Date().toISOString()
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true, // 성공한 로그인은 카운트하지 않음
-    skipFailedRequests: false
-  })(req, res, next);
+  return next(); // 임시로 비활성화
 };
 
 // 채팅 메시지 Rate Limiting (개발 환경용)
