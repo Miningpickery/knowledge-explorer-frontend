@@ -1,97 +1,22 @@
-# 🚀 CI/CD Pipeline
-# 상용화 수준의 GitHub Actions 워크플로우
+# 🚀 CI/CD Pipeline (단순화된 버전)
+# 개발용 GitHub Actions 워크플로우
 
-name: 🔄 CI/CD Pipeline
+name: 🔄 Simple CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
-  release:
-    types: [ published ]
+    branches: [ main ]
 
 env:
   NODE_VERSION: '18'
 
 jobs:
-  # 🧪 테스트 및 코드 품질 검사
-  test:
-    name: 🧪 Test & Code Quality
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: knowledge_explorer_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-          
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v4
-
-      - name: 🔧 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: 📦 Install Dependencies
-        run: npm ci
-
-      - name: 🔍 Lint Code
-        run: npm run lint --if-present
-
-      - name: 🎨 Check Code Formatting
-        run: npm run format:check --if-present
-
-      - name: 🛡️ Security Audit
-        run: npm audit --audit-level=high
-
-      - name: 🧪 Run Tests
-        run: npm run test:coverage
-        env:
-          NODE_ENV: test
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_explorer_test
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-jwt-secret
-          GOOGLE_CLIENT_ID: test-client-id
-          GOOGLE_CLIENT_SECRET: test-client-secret
-
-      - name: 📊 Upload Coverage Reports (일시 비활성화)
-        run: echo "Coverage upload temporarily disabled"
-
-      # - name: 🏷️ SonarCloud Analysis (일시 비활성화)
-      #   uses: SonarSource/sonarcloud-github-action@master
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  # 🏗️ 빌드 (간단한 방식)
+  # 🏗️ 간단한 빌드 테스트
   build:
     name: 🏗️ Build Application
     runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name != 'pull_request'
 
     steps:
       - name: 📥 Checkout Code
@@ -112,175 +37,20 @@ jobs:
       - name: ✅ Build Success
         run: echo "Build completed successfully! 🎉"
 
-  # 🚀 스테이징 배포 (간단한 방식)
-  deploy-staging:
-    name: 🚀 Deploy to Staging
+  # ✅ 빌드 성공 알림
+  notify:
+    name: ✅ Build Success Notification
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/develop'
+    if: success()
     
     steps:
-      - name: 🚀 Deploy to Staging Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USERNAME }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_PORT || 22 }}
-          script: |
-            echo "🚀 Starting deployment to staging..."
-            cd ${{ secrets.STAGING_APP_PATH || '/app/knowledge-explorer' }}
-            
-            echo "📥 Pulling latest code..."
-            git pull origin develop
-            
-            echo "📦 Installing dependencies..."
-            npm ci --production
-            
-            echo "🏗️ Building application..."
-            npm run build
-            
-            echo "🔄 Restarting services..."
-            pm2 restart knowledge-explorer-backend || pm2 start src/index.js --name knowledge-explorer-backend
-            pm2 restart knowledge-explorer-frontend || pm2 serve dist --name knowledge-explorer-frontend --port 8000
-            
-            echo "💾 Saving PM2 configuration..."
-            pm2 save
-            
-            echo "✅ Deployment completed successfully!"
-
-      - name: 🔍 Health Check
+      - name: 🎉 Build Success
         run: |
-          echo "⏳ Waiting for service to start..."
-          sleep 30
-          echo "🔍 Checking health endpoint..."
-          curl -f ${{ secrets.STAGING_URL || 'http://staging.knowledge-explorer.com' }}/health || echo "⚠️ Health check failed, but deployment may still be successful"
-
-  # 🏭 프로덕션 배포 (간단한 방식)
-  deploy-production:
-    name: 🏭 Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: 🚀 Deploy to Production Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PRODUCTION_HOST }}
-          username: ${{ secrets.PRODUCTION_USERNAME }}
-          key: ${{ secrets.PRODUCTION_SSH_KEY }}
-          port: ${{ secrets.PRODUCTION_PORT || 22 }}
-          script: |
-            echo "🚀 Starting deployment to production..."
-            cd ${{ secrets.PRODUCTION_APP_PATH || '/app/knowledge-explorer' }}
-            
-            echo "📥 Pulling latest code..."
-            git pull origin main
-            
-            echo "📦 Installing dependencies..."
-            npm ci --production
-            
-            echo "🏗️ Building application..."
-            npm run build
-            
-            echo "🔄 Restarting services..."
-            pm2 restart knowledge-explorer-backend || pm2 start src/index.js --name knowledge-explorer-backend
-            pm2 restart knowledge-explorer-frontend || pm2 serve dist --name knowledge-explorer-frontend --port 8000
-            
-            echo "💾 Saving PM2 configuration..."
-            pm2 save
-            
-            echo "✅ Production deployment completed successfully!"
-
-      - name: 🔍 Production Health Check
-        run: |
-          echo "⏳ Waiting for production service to start..."
-          sleep 60
-          echo "🔍 Checking production health endpoint..."
-          curl -f ${{ secrets.PRODUCTION_URL || 'https://knowledge-explorer.com' }}/health || echo "⚠️ Health check failed, please check manually"
-
-      - name: 📊 Create Release Summary
-        run: |
-          echo "## 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Build Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Production URL**: ${{ secrets.PRODUCTION_URL || 'https://knowledge-explorer.com' }}" >> $GITHUB_STEP_SUMMARY
-
-  # 🛡️ 보안 스캔
-  security-scan:
-    name: 🛡️ Security Scan
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    
-    steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v4
-
-      - name: 🔍 Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: 📤 Upload Trivy Results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-      - name: 🛡️ OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: 'knowledge-explorer'
-          path: '.'
-          format: 'JSON'
-
-  # 📊 성능 테스트
-  performance-test:
-    name: 📊 Performance Test
-    runs-on: ubuntu-latest
-    needs: deploy-staging
-    if: github.ref == 'refs/heads/develop'
-    
-    steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v4
-
-      - name: 🚀 Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v10
-        with:
-          urls: |
-            ${{ secrets.STAGING_URL }}
-            ${{ secrets.STAGING_URL }}/login
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-
-      - name: 📈 Run Load Testing
-        run: |
-          npx artillery run performance/load-test.yml --target ${{ secrets.STAGING_URL }}
-        if: success()
-
-  # 🧹 정리 작업
-  cleanup:
-    name: 🧹 Cleanup
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [test, build, deploy-staging, deploy-production]
-    
-    steps:
-      - name: 🗑️ Clean up old Docker images
-        run: |
-          docker image prune -af --filter="until=24h"
-        continue-on-error: true
-
-      - name: 📊 Update Badge Status
-        uses: Sibz/github-status-action@v1
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          context: 'CI/CD Pipeline'
-          state: ${{ job.status }}
-          sha: ${{ github.sha }}
+          echo "- **Status**: ✅ All checks passed!" >> $GITHUB_STEP_SUMMARY

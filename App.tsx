@@ -1335,14 +1335,18 @@ const App: React.FC = () => {
       // 기존 메시지를 보존하면서 스트리밍 메시지만 업데이트 (중요: 사용자 메시지는 항상 보존)
       const currentMessages = targetChat.messages || [];
       
-      // 1. 🚨 기존 메시지는 모두 보존하고 로딩 중인 메시지만 제거
+      // 1. 🚨 기존 메시지는 모두 보존하고 로딩 중인 메시지만 제거 (더 안전한 방식)
       const messagesWithoutLoading = currentMessages.filter((msg: any) => {
-        // 사용자 메시지는 항상 보존
+        // 사용자 메시지는 절대 제거하지 않음
         if (msg.sender === 'user') {
           return true;
         }
-        // AI 메시지 중에서만 로딩 상태인 것 제거 (완성된 메시지는 보존)
-        return !msg.isLoading;
+        // AI 메시지 중에서 로딩 상태이면서 임시 ID인 것만 제거
+        if (msg.isLoading && msg.message_id && msg.message_id.startsWith('loading-')) {
+          return false;
+        }
+        // 나머지 모든 메시지는 보존
+        return true;
       });
       
       console.log('🔍 스트리밍 중 기존 메시지 보존:', {
@@ -1395,12 +1399,26 @@ const App: React.FC = () => {
         });
       }
       
-      // 현재 활성 채팅방이면 실시간 UI 업데이트
+      // 🚨 현재 활성 채팅방이면 실시간 UI 업데이트 (단어 단위 스트리밍을 위해 setMessages 호출)
       if (useChatStore.getState().activeChatId === streamingChatId) {
         console.log('🎯 활성 채팅방 스트리밍 UI 업데이트 시작');
-        // 🚨 스트리밍 중일 때는 setMessages로 실시간 UI 업데이트
-        setMessages(updatedMessages);
-        console.log('✅ 활성 채팅방 스트리밍 UI 업데이트 완료 (setMessages 호출)');
+        
+        // 🚨 메시지 배열 안전성 검증
+        if (Array.isArray(updatedMessages) && updatedMessages.length > 0) {
+          // 사용자 메시지가 보존되었는지 확인
+          const userMessages = updatedMessages.filter(msg => msg.sender === 'user');
+          console.log('🔍 스트리밍 중 사용자 메시지 보존 확인:', {
+            총메시지수: updatedMessages.length,
+            사용자메시지수: userMessages.length,
+            사용자메시지: userMessages.map(m => ({ id: m.message_id, text: m.text?.substring(0, 30) }))
+          });
+          
+          // 🚨 단어 단위 스트리밍을 위해 setMessages 호출 (실시간 UI 업데이트)
+          setMessages(updatedMessages);
+          console.log('✅ 활성 채팅방 스트리밍 UI 업데이트 완료 (setMessages 호출)');
+        } else {
+          console.log('⚠️ 업데이트할 메시지가 없음 - UI 업데이트 건너뜀');
+        }
       } else {
         console.log('⚠️ 활성 채팅방이 아님 - 스트리밍 UI 업데이트 건너뜀');
       }
@@ -1416,12 +1434,16 @@ const App: React.FC = () => {
       
       // 1. 🚨 스트리밍 중인 메시지와 로딩 중인 메시지만 제거 (사용자 메시지와 완성된 AI 메시지는 보존)
       const filtered = currentMessages.filter((msg: any) => {
-        // 사용자 메시지는 항상 보존
+        // 사용자 메시지는 절대 제거하지 않음
         if (msg.sender === 'user') {
           return true;
         }
-        // AI 메시지 중에서만 스트리밍/로딩 상태인 것 제거 (완성된 메시지는 보존)
-        return msg.message_id !== streamingId && !msg.isLoading && !msg.isStreaming;
+        // AI 메시지 중에서 스트리밍 ID와 일치하거나 로딩/스트리밍 상태인 것만 제거
+        if (msg.message_id === streamingId || msg.isLoading || msg.isStreaming) {
+          return false;
+        }
+        // 나머지 모든 메시지는 보존
+        return true;
       });
       
       console.log('🔍 최종 메시지 업데이트 시 기존 메시지 보존:', {
@@ -1475,9 +1497,23 @@ const App: React.FC = () => {
       // 현재 활성 채팅방이면 전역 messages 상태도 업데이트
       if (useChatStore.getState().activeChatId === streamingChatId) {
         console.log('🎯 활성 채팅방 최종 메시지 상태 업데이트 시작');
-        // 🚨 전역 messages 상태도 업데이트해야 ChatInterface에 표시됨
-        setMessages(updatedMessages);
-        console.log('✅ 활성 채팅방 최종 메시지 상태 업데이트 완료 (setMessages 호출)');
+        
+        // 🚨 메시지 배열 안전성 검증
+        if (Array.isArray(updatedMessages) && updatedMessages.length > 0) {
+          // 사용자 메시지가 보존되었는지 확인
+          const userMessages = updatedMessages.filter(msg => msg.sender === 'user');
+          console.log('🔍 최종 메시지 업데이트 시 사용자 메시지 보존 확인:', {
+            총메시지수: updatedMessages.length,
+            사용자메시지수: userMessages.length,
+            사용자메시지: userMessages.map(m => ({ id: m.message_id, text: m.text?.substring(0, 30) }))
+          });
+          
+          // 🚨 전역 messages 상태도 업데이트해야 ChatInterface에 표시됨
+          setMessages(updatedMessages);
+          console.log('✅ 활성 채팅방 최종 메시지 상태 업데이트 완료 (setMessages 호출)');
+        } else {
+          console.log('⚠️ 업데이트할 메시지가 없음 - 최종 메시지 상태 업데이트 건너뜀');
+        }
       } else {
         console.log('⚠️ 활성 채팅방이 아님 - 최종 메시지 상태 업데이트 건너뜀');
       }
@@ -1590,9 +1626,24 @@ const App: React.FC = () => {
         isLoading: true
       };
       
+      // 🚨 현재 메시지 상태를 안전하게 가져와서 로딩 메시지 추가
       const currentMessagesWithLoading = useChatStore.getState().messages;
+      console.log('🔍 로딩 메시지 추가 전 현재 메시지 상태:', {
+        messageCount: Array.isArray(currentMessagesWithLoading) ? currentMessagesWithLoading.length : 0,
+        messages: Array.isArray(currentMessagesWithLoading) ? currentMessagesWithLoading.map(m => ({ 
+          id: m.message_id, 
+          sender: m.sender, 
+          text: m.text?.substring(0, 30) 
+        })) : []
+      });
+      
       const newMessagesWithLoading = [...(Array.isArray(currentMessagesWithLoading) ? currentMessagesWithLoading : []), aiLoadingMessage];
       setMessages(newMessagesWithLoading);
+      
+      console.log('✅ 로딩 메시지 추가 완료:', {
+        totalMessageCount: newMessagesWithLoading.length,
+        loadingMessageId: loadingId
+      });
 
       // 단계별 로딩 메시지 변화
       const loadingStages = [
@@ -1606,14 +1657,23 @@ const App: React.FC = () => {
       loadingInterval = setInterval(() => {
         stageIndex = (stageIndex + 1) % loadingStages.length;
         const currentMessages = useChatStore.getState().messages;
-        const updatedMessages = Array.isArray(currentMessages) 
-          ? currentMessages.map((msg: any) => 
-              msg.message_id === loadingId
-                ? { ...msg, text: loadingStages[stageIndex] }
-                : msg
-            )
-          : [];
-        setMessages(updatedMessages);
+        
+        // 🚨 메시지 상태를 안전하게 업데이트
+        if (Array.isArray(currentMessages)) {
+          const updatedMessages = currentMessages.map((msg: any) => 
+            msg.message_id === loadingId
+              ? { ...msg, text: loadingStages[stageIndex] }
+              : msg
+          );
+          
+          console.log('🔄 로딩 메시지 단계 업데이트:', {
+            stage: loadingStages[stageIndex],
+            totalMessages: updatedMessages.length,
+            loadingMessageId: loadingId
+          });
+          
+          setMessages(updatedMessages);
+        }
       }, 1500); // 1.5초마다 메시지 변경
 
       // API 호출 (인증 상태에 따라 다르게 처리)
@@ -1881,6 +1941,14 @@ const App: React.FC = () => {
   
   // 🚨 초기화 후 가장 최근 채팅방 자동 선택
   useEffect(() => {
+    console.log('🔍 채팅 자동 선택 useEffect 실행:', {
+      isInitialized,
+      isAuthenticated,
+      chatsLength: chats.length,
+      activeChatId,
+      chats: chats.map(c => ({ chat_id: c.chat_id, title: c.title }))
+    });
+    
     if (isInitialized && isAuthenticated && chats.length > 0 && !activeChatId) {
       console.log('🔄 초기화 후 가장 최근 채팅방 자동 선택 시작...');
       
@@ -1988,6 +2056,9 @@ const App: React.FC = () => {
               chats={chats}
               activeChatId={activeChatId}
               onChatSelect={(chatId) => {
+                console.log('🖱️ App.tsx에서 채팅 선택됨:', chatId);
+                console.log('🔍 현재 chats 배열:', chats);
+                console.log('🔍 chats 길이:', chats.length);
                 selectChat(chatId);
                 // 모달은 사용자가 직접 닫을 때까지 유지
               }}

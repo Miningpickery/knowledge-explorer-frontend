@@ -21,6 +21,112 @@ const { optionalAuth, authenticateToken } = require('../middleware/auth');
 const { validateKey } = require('../middleware/validation');
 const memoryService = require('../services/memoryService');
 
+// ===== 새로운 메모리 저장 규칙을 위한 유틸리티 함수들 =====
+
+// 주제 일관성 분석 함수
+function analyzeTopicConsistency(messages) {
+  try {
+    if (!messages || messages.length < 4) return 0;
+    
+    // 주요 주제 키워드 정의
+    const topicKeywords = {
+      '법률': ['법률', '법원', '소송', '채권', '채무', '개인회생', '파산', '압류', '가압류', '집행', '판결', '법정', '변호사', '법무사'],
+      '사주명리': ['사주', '명리', '격국', '용신', '오행', '십성', '월지', '일지', '시지', '천간', '지지', '적천수', '억부', '병약'],
+      '건강': ['건강', '질병', '병원', '의사', '치료', '약물', '증상', '진단', '수술', '재활'],
+      '경제': ['경제', '투자', '주식', '부동산', '금융', '은행', '대출', '저축', '보험', '재정'],
+      '교육': ['교육', '학습', '공부', '학교', '대학', '시험', '성적', '과목', '교사', '학생']
+    };
+    
+    // 각 메시지에서 주제별 키워드 매칭
+    const topicMatches = {};
+    Object.keys(topicKeywords).forEach(topic => {
+      topicMatches[topic] = 0;
+    });
+    
+    messages.forEach(message => {
+      if (message.text && message.sender === 'user') {
+        const text = message.text.toLowerCase();
+        Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+          keywords.forEach(keyword => {
+            if (text.includes(keyword.toLowerCase())) {
+              topicMatches[topic]++;
+            }
+          });
+        });
+      }
+    });
+    
+    // 가장 많이 언급된 주제 찾기
+    const maxTopic = Object.entries(topicMatches).reduce((max, [topic, count]) => 
+      count > max.count ? { topic, count } : max, { topic: null, count: 0 }
+    );
+    
+    // 일관성 점수 계산 (0-1 사이)
+    const totalUserMessages = messages.filter(m => m.sender === 'user').length;
+    const consistencyScore = totalUserMessages > 0 ? maxTopic.count / totalUserMessages : 0;
+    
+    console.log(`🔍 주제 일관성 분석: ${maxTopic.topic || '없음'} (${maxTopic.count}/${totalUserMessages} = ${consistencyScore.toFixed(2)})`);
+    
+    return {
+      score: consistencyScore,
+      dominantTopic: maxTopic.topic,
+      topicCount: maxTopic.count,
+      totalUserMessages
+    };
+    
+  } catch (error) {
+    console.error('❌ 주제 일관성 분석 실패:', error);
+    return { score: 0, dominantTopic: null, topicCount: 0, totalUserMessages: 0 };
+  }
+}
+
+// 키워드 빈도 분석 함수
+function analyzeKeywordFrequency(messages) {
+  try {
+    if (!messages || messages.length < 4) return [];
+    
+    // 관심사 키워드 정의
+    const interestKeywords = [
+      '법률', '사주', '건강', '경제', '교육', '취미', '여행', '음식', '운동', '독서',
+      '개인회생', '채권', '소송', '명리', '격국', '용신', '투자', '부동산', '학습', '공부'
+    ];
+    
+    const keywordCounts = {};
+    interestKeywords.forEach(keyword => {
+      keywordCounts[keyword] = 0;
+    });
+    
+    // 모든 메시지에서 키워드 카운트
+    messages.forEach(message => {
+      if (message.text) {
+        const text = message.text.toLowerCase();
+        interestKeywords.forEach(keyword => {
+          if (text.includes(keyword.toLowerCase())) {
+            keywordCounts[keyword]++;
+          }
+        });
+      }
+    });
+    
+    // 빈도가 높은 키워드들 반환 (3회 이상)
+    const frequentKeywords = Object.entries(keywordCounts)
+      .filter(([keyword, count]) => count >= 3)
+      .sort((a, b) => b[1] - a[1])
+      .map(([keyword, count]) => ({ keyword, count }));
+    
+    console.log(`🔍 키워드 빈도 분석: ${frequentKeywords.length}개 키워드 (3회 이상)`);
+    frequentKeywords.forEach(({ keyword, count }) => {
+      console.log(`  - ${keyword}: ${count}회`);
+    });
+    
+    return frequentKeywords;
+    
+  } catch (error) {
+    console.error('❌ 키워드 빈도 분석 실패:', error);
+    return [];
+  }
+}
+
 // 개인정보 중심 메모리 저장 조건 확인 함수
 async function shouldSaveLongTermMemory(chatId, conversationContexts) {
   try {
@@ -94,13 +200,38 @@ async function shouldSaveLongTermMemory(chatId, conversationContexts) {
     const timeSinceLastMessage = (now - lastMessageTime) / (1000 * 60);
     const isInactive = timeSinceLastMessage > 15;
     
-    // 개인정보가 있거나 개인정보 밀도가 높거나 대화가 종결되었거나 비활성 상태일 때만 저장
-    if (!hasPersonalInfo && !hasHighPersonalInfoDensity && !isClosing && !isInactive) {
-      console.log(`📝 개인정보 관련 내용 부족 - 메모리 저장 건너뜀`);
+    // ===== 새로운 메모리 저장 규칙들 =====
+    
+    // 8. 주제별 대화 길이 및 일관성 확인 (새로운 규칙)
+    const topicAnalysis = analyzeTopicConsistency(messages);
+    const hasTopicConsistency = topicAnalysis.score >= 0.6 && topicAnalysis.topicCount >= 5;
+    
+    // 9. 키워드 빈도 확인 (새로운 규칙)
+    const frequentKeywords = analyzeKeywordFrequency(messages);
+    const hasHighKeywordFrequency = frequentKeywords.length > 0;
+    
+    // 기존 조건들 확인
+    const hasExistingConditions = hasPersonalInfo || hasHighPersonalInfoDensity || isClosing || isInactive;
+    
+    // 새로운 조건들 확인
+    const hasNewConditions = hasTopicConsistency || hasHighKeywordFrequency;
+    
+    // 기존 조건 또는 새로운 조건 중 하나라도 만족하면 저장
+    if (!hasExistingConditions && !hasNewConditions) {
+      console.log(`📝 메모리 저장 조건 미충족 - 건너뜀`);
       return false;
     }
     
-    console.log(`✅ 개인정보 중심 메모리 저장 조건 충족 (${messageCount}개 메시지, 개인정보: ${hasPersonalInfo}, 종료: ${isClosing}, 비활성: ${isInactive})`);
+    // 저장 이유 로깅
+    const saveReasons = [];
+    if (hasPersonalInfo) saveReasons.push('개인정보');
+    if (hasHighPersonalInfoDensity) saveReasons.push('개인정보밀도');
+    if (isClosing) saveReasons.push('대화종결');
+    if (isInactive) saveReasons.push('비활성상태');
+    if (hasTopicConsistency) saveReasons.push(`주제일관성(${topicAnalysis.dominantTopic})`);
+    if (hasHighKeywordFrequency) saveReasons.push(`키워드빈도(${frequentKeywords.map(k => k.keyword).join(',')})`);
+    
+    console.log(`✅ 메모리 저장 조건 충족 (${messageCount}개 메시지, 이유: ${saveReasons.join(', ')})`);
     return true;
     
   } catch (error) {
@@ -517,7 +648,7 @@ router.post('/:chatId/messages', optionalAuth, async (req, res) => {
             totalWords: words.length
           })}\n\n`);
           
-          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 30));
+          await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 50));
         }
         
         // 최종 문단 전송
@@ -828,8 +959,12 @@ router.post('/:chatId/messages', optionalAuth, async (req, res) => {
             const words = paragraph.content.trim().split(/\s+/);
             let currentText = '';
             
+            console.log(`🔤 단어 단위 스트리밍 시작 - 문단 ${i + 1}, 총 ${words.length}개 단어`);
+            
             for (let j = 0; j < words.length; j++) {
               currentText += (j > 0 ? ' ' : '') + words[j];
+              
+              console.log(`📝 단어 ${j + 1}/${words.length} 전송: "${words[j]}" (누적: "${currentText.substring(0, 50)}...")`);
               
               // 프론트로 단어 단위 전송
               res.write(`DATA: ${JSON.stringify({
@@ -846,9 +981,11 @@ router.post('/:chatId/messages', optionalAuth, async (req, res) => {
                 totalWords: words.length
               })}\n\n`);
               
-              // 단어 간 지연 (타이핑 효과)
-              await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 30));
+              // 단어 간 지연 (타이핑 효과) - 조금 더 느리게
+              await new Promise(resolve => setTimeout(resolve, 40 + Math.random() * 30));
             }
+            
+            console.log(`✅ 단어 단위 스트리밍 완료 - 문단 ${i + 1}`);
             
             // 최종 문단 전송 (스트리밍 완료)
             res.write(`DATA: ${JSON.stringify({

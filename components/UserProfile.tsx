@@ -265,7 +265,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
         </div>
 
         {/* 프로필 카드 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mx-6 flex-1 overflow-hidden flex flex-col">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mx-6 flex-1 flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
           {activeTab === 'profile' ? (
             <>
               {/* 프로필 이미지 섹션 */}
@@ -303,7 +303,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
               </div>
 
               {/* 정보 섹션 */}
-              <div className="p-6 flex-1 overflow-y-auto">
+              <div className="p-6 flex-1">
                 {isEditing ? (
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -425,7 +425,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto sidebar-scroll" style={{ maxHeight: 'calc(100vh - 300px)' }}>
                 {loadingMemories ? (
                   <div className="text-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mx-auto mb-4"></div>
@@ -449,13 +449,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
                     {memories.map((memory) => (
                       <div key={memory.memory_id} className="group bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg hover:border-blue-200 transition-all duration-200">
                         <div className="flex justify-between items-start mb-3">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
                               <FileText className="w-4 h-4 text-gray-600" />
                             </div>
-                            <h4 className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">{memory.title}</h4>
+                            <h4 className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors truncate flex-1 min-w-0" title={memory.title}>{memory.title}</h4>
                           </div>
-                                                     <div className="flex space-x-2 text-sm">
+                          <div className="flex space-x-2 text-sm flex-shrink-0 ml-3">
                              {!memory.isReadOnly && (
                                <>
                                  <button 
@@ -497,15 +497,30 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProfileUpda
                         
                         <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-3">{memory.content}</p>
                         
-                        <div className="flex space-x-2">
-                          <button className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:from-gray-100 hover:to-gray-200 transition-all duration-200 flex items-center space-x-1.5 whitespace-nowrap">
-                            <FileText className="w-3 h-3" />
-                            <span>대화요약</span>
-                          </button>
-                          <button className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium hover:from-gray-100 hover:to-gray-200 transition-all duration-200 flex items-center space-x-1.5 whitespace-nowrap">
-                            <Zap className="w-3 h-3" />
-                            <span>자동생성</span>
-                          </button>
+                        <div className="flex space-x-2 overflow-hidden">
+                          {memory.tags && memory.tags.length > 0 ? (
+                            memory.tags.slice(0, 2).map((tag, index) => (
+                              <span key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap truncate" title={tag}>
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <>
+                              <span className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                                <FileText className="w-3 h-3 inline mr-1" />
+                                대화요약
+                              </span>
+                              <span className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                                <Zap className="w-3 h-3 inline mr-1" />
+                                자동생성
+                              </span>
+                            </>
+                          )}
+                          {memory.tags && memory.tags.length > 2 && (
+                            <span className="bg-gradient-to-r from-gray-50 to-gray-100 text-gray-500 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap">
+                              +{memory.tags.length - 2}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
